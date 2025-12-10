@@ -1,0 +1,21 @@
+{
+  "name": "payman",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsc && node --enable-source-maps --env-file=.env build/index.js",
+    "deploy-commands": "tsc && node --enable-source-maps --env-file=.env build/deploy-commands.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1"
+  }
+}
