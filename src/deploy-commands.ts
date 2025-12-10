@@ -11,6 +11,16 @@ const commands = [
         )
         .addUserOption(option =>
         option.setName('participant').setDescription('相手').setRequired(true))
+    ,
+    // ▼ 新しい削除コマンド
+    new SlashCommandBuilder()
+        .setName('delete') // コマンド名
+        .setDescription('指定したIDのデータを削除します')
+        .addIntegerOption(option => 
+            option.setName('id')
+                .setDescription('削除したいデータの番号（ID）')
+                .setRequired(true)
+        )
 ].map(command => command.toJSON());
 
 // おまじない　サーバーにコマンドを登録する

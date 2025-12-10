@@ -1,5 +1,5 @@
 {
-  "name": "payman",
+  "name": "pay-crew2",
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
@@ -17,5 +17,13 @@
   },
   "dependencies": {
     "discord.js": "^14.25.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/takuto-s/pay-crew2.git"
+  },
+  "bugs": {
+    "url": "https://github.com/takuto-s/pay-crew2/issues"
+  },
+  "homepage": "https://github.com/takuto-s/pay-crew2#readme"
 }
