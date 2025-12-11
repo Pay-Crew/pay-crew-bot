@@ -42,19 +42,19 @@ const clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
 
 if (!token || !clientId || !guildId) {
-    throw new Error('環境変数が不足しています');
+  throw new Error('環境変数が不足しています');
 }
 
 const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
-    try {
-        console.log('登録開始');
-        await rest.put(
-            Routes.applicationGuildCommands(clientId, guildId),
-            { body: commands },
-        );
-        console.log('コマンド登録成功');
-    } catch (error) {
-        console.error(error);
-    }
+  try {
+    console.log('登録開始');
+    await rest.put(
+      Routes.applicationGuildCommands(clientId, guildId),
+      { body: commands },
+    );
+    console.log('コマンド登録成功');
+  } catch (error) {
+    console.error(error);
+  }
 })();
