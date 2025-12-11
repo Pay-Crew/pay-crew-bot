@@ -3,24 +3,37 @@ import { REST, Routes, SlashCommandBuilder } from 'discord.js';
 
 // 登録するコマンドリスト
 const commands = [
-    new SlashCommandBuilder()
-        .setName('ping') // コマンド名 すべて小文字
-        .setDescription('Pong!と返信します')
-        .addUserOption(option => 
-            option.setName('payer').setDescription('支払った人').setRequired(true)
-        )
-        .addUserOption(option =>
-        option.setName('participant').setDescription('相手').setRequired(true))
-    ,
-    // ▼ 新しい削除コマンド
-    new SlashCommandBuilder()
-        .setName('delete') // コマンド名
-        .setDescription('指定したIDのデータを削除します')
-        .addIntegerOption(option => 
-            option.setName('id')
-                .setDescription('削除したいデータの番号（ID）')
-                .setRequired(true)
-        )
+  // 追加
+  new SlashCommandBuilder()
+    .setName('insert') // コマンド名 すべて小文字
+    .setDescription('支払いを追加します')
+    .addUserOption((option) => 
+      option
+        .setName('payer')
+        .setDescription('支払った人')
+        .setRequired(true)
+    )
+    .addUserOption((option) =>
+      option
+        .setName('participant')
+        .setDescription('相手')
+        .setRequired(true)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName('amount')
+        .setDescription('金額')
+        .setRequired(true)
+    ),
+  // 削除
+  new SlashCommandBuilder()
+      .setName('delete') // コマンド名
+      .setDescription('指定したIDのデータを削除します')
+      .addIntegerOption((option) => 
+        option.setName('id')
+          .setDescription('削除したいデータの番号（ID）')
+          .setRequired(true)
+      )
 ].map(command => command.toJSON());
 
 // おまじない　サーバーにコマンドを登録する
