@@ -15,7 +15,7 @@ const commands = [
     )
     .addUserOption((option) =>
       option
-        .setName('返金した人')
+        .setName('返金する人')
         .setDescription('今回の支払いを返金すべき人')
         .setRequired(true)
     )
