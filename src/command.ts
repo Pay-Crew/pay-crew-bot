@@ -33,9 +33,9 @@ export const insertCmd = async (interaction: ChatInputCommandInteraction<CacheTy
   assert(isTransactionArray(transactions));
 
   // 受け取った引数はこんな感じで取り出せる
-  const participant = interaction.options.getUser("participant", true).id;
-  const payer = interaction.options.getUser("payer", true).id;
-  const amount = interaction.options.getInteger("amount", true);
+  const participant = interaction.options.getUser("返金する人", true).id;
+  const payer = interaction.options.getUser("支払った人", true).id;
+  const amount = interaction.options.getInteger("金額", true);
 
   // 新データ作成
   const newData: Transaction = {
