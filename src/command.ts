@@ -1,8 +1,31 @@
 import assert from "assert";
-import { CacheType, ChatInputCommandInteraction, Client } from "discord.js";
+import { CacheType, ChatInputCommandInteraction, Client, GuildMember } from "discord.js";
 import { Transaction, readTransactions, writeTransactions } from "./transaction";
 
 const GUILD_ID = process.env.GUILD_ID;
+
+const historyReplyMsg = (n: number, transactions: Transaction[], members: Map<string, GuildMember>) => {
+  assert(0 <= n);
+  
+  let replyText = "";
+  for (const {i, transaction} of transactions
+    .map((transaction, i) => ({i, transaction}))
+    .slice(transactions.length > n ? -n: undefined)
+    .reverse()
+  ) {
+    const payer = members.get(transaction.payer);
+    const participant = members.get(transaction.participant);
+    replyText += `${i}: ${
+      payer === undefined ? "(存在しないユーザー)" : payer.displayName
+    }が${
+      participant === undefined ? "(存在しないユーザー)" : participant.displayName
+    }の分のお金を${transaction.amount}円払った\n`;
+  }
+  if (transactions.length > n) {
+    replyText += `(他${transactions.length - n}件)`
+  }
+  return replyText;
+}
 
 export const insertCmd = async (client: Client<boolean>, interaction: ChatInputCommandInteraction<CacheType>) => {
   // 今までの履歴を持ってくる
@@ -26,16 +49,7 @@ export const insertCmd = async (client: Client<boolean>, interaction: ChatInputC
   const members = new Map(await guild.members.fetch());
 
   // 応答文章作成
-  let replyText = "";
-  for (const {i, transaction} of transactions.slice(-10).map((transaction, i) => ({i, transaction}))) {
-    const payer = members.get(transaction.payer);
-    const participant = members.get(transaction.participant);
-    replyText += `${i}: ${
-      payer === undefined ? "(存在しないユーザー)" : payer.displayName
-    }が${
-      participant === undefined ? "(存在しないユーザー)" : participant.displayName
-    }の分のお金を${transaction.amount}円払った\n`;
-  }
+  let replyText = historyReplyMsg(10, transactions, members);
   await interaction.reply(replyText);
 
   // Storage.jsonに新データを追加したものを書き込む
@@ -79,3 +93,17 @@ export const deleteCmd = async (client: Client<boolean>, interaction: ChatInputC
   }`;
   await interaction.reply({ content: replyText });
 };
+
+export const historyCmd = async (client: Client<boolean>, interaction: ChatInputCommandInteraction<CacheType>) => {
+  const transactions = readTransactions();
+
+  const t = interaction.options.getInteger("個数");
+  const n = t === null ? 10 : t;
+
+  assert(GUILD_ID !== undefined);
+  const guild = await client.guilds.fetch(GUILD_ID);
+  const members = new Map(await guild.members.fetch());
+
+  let replyText = historyReplyMsg(n, transactions, members);
+  await interaction.reply(replyText);
+}

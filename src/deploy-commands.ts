@@ -28,13 +28,21 @@ const commands = [
     ),
   // 削除
   new SlashCommandBuilder()
-      .setName('delete') // コマンド名
-      .setDescription('指定したIDのデータを削除します')
-      .addIntegerOption((option) => 
-        option.setName('id')
-          .setDescription('削除したいデータの番号（ID）')
-          .setRequired(true)
-      )
+    .setName('delete') // コマンド名
+    .setDescription('指定したIDのデータを削除します')
+    .addIntegerOption((option) => 
+      option.setName('id')
+      .setDescription('削除したいデータの番号（ID）')
+      .setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName("history")
+    .setDescription("支払いの履歴を最新のものから表示します")
+    .addIntegerOption((option) => 
+      option
+      .setName("個数")
+      .setDescription("表示する個数")
+    )
 ].map((command) => command.toJSON());
 
 // おまじない　サーバーにコマンドを登録する
