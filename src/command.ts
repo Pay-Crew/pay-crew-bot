@@ -1,6 +1,7 @@
 import assert from "assert";
 import { CacheType, ChatInputCommandInteraction, Client, GuildMember } from "discord.js";
 import { Transaction, readTransactions, writeTransactions } from "./transaction";
+import { client } from ".";
 
 const GUILD_ID = process.env.GUILD_ID;
 
@@ -105,5 +106,81 @@ export const historyCmd = async (client: Client<boolean>, interaction: ChatInput
   const members = new Map(await guild.members.fetch());
 
   let replyText = historyReplyMsg(n, transactions, members);
+  await interaction.reply(replyText);
+}
+
+export const refundCmd = async (client: Client<boolean>, interaction: ChatInputCommandInteraction<CacheType>) => {
+  const transactions = readTransactions();
+
+  const memberAmounts = new Map<string, number>();
+  for (const transaction of transactions) {
+    const payerAmount = memberAmounts.get(transaction.payer);
+    if (payerAmount === undefined) {
+      memberAmounts.set(transaction.payer, transaction.amount);
+    } else {
+      memberAmounts.set(transaction.payer, payerAmount + transaction.amount)
+    }
+    
+    const participantAmount = memberAmounts.get(transaction.participant);
+    if (participantAmount === undefined) {
+      memberAmounts.set(transaction.participant, -transaction.amount);
+    } else {
+      memberAmounts.set(transaction.participant, participantAmount - transaction.amount)
+    }
+  }
+
+  const positiveRefundMembers: {member: string, amount: number}[] = [];
+  const negativeRefundMembers: {member: string, amount: number}[] = [];
+  for (const [member, amount] of memberAmounts) {
+    if (amount > 0) {
+      positiveRefundMembers.push({member, amount});
+    } else if (amount < 0) {
+      negativeRefundMembers.push({member, amount});
+    }
+  }
+  positiveRefundMembers.sort((a, b) => (b.amount - a.amount));
+  negativeRefundMembers.sort((a, b) => (b.amount - a.amount));
+
+  const refunds: {from: string, to: string, amount: number}[] = []
+  let positiveRefundMembersIndex = 0;
+  let negativeRefundMembersIndex = 0;
+  while (positiveRefundMembersIndex < positiveRefundMembers.length && negativeRefundMembersIndex < negativeRefundMembers.length) {
+    if (positiveRefundMembers[positiveRefundMembersIndex].amount >= negativeRefundMembers[negativeRefundMembersIndex].amount) {
+      refunds.push({
+        from: negativeRefundMembers[negativeRefundMembersIndex].member, 
+        to: positiveRefundMembers[positiveRefundMembersIndex].member,
+        amount: negativeRefundMembers[negativeRefundMembersIndex].amount
+      });
+      positiveRefundMembers[positiveRefundMembersIndex].amount -= negativeRefundMembers[negativeRefundMembersIndex].amount;
+      negativeRefundMembers[negativeRefundMembersIndex].amount = 0;
+      negativeRefundMembersIndex += 1;
+    } else {
+      refunds.push({
+        from: negativeRefundMembers[negativeRefundMembersIndex].member, 
+        to: positiveRefundMembers[positiveRefundMembersIndex].member,
+        amount: positiveRefundMembers[positiveRefundMembersIndex].amount
+      });
+      positiveRefundMembers[positiveRefundMembersIndex].amount = 0;
+      negativeRefundMembers[negativeRefundMembersIndex].amount -= positiveRefundMembers[positiveRefundMembersIndex].amount;
+      positiveRefundMembersIndex += 1;
+    }
+  }
+
+  assert(GUILD_ID !== undefined);
+  const guild = await client.guilds.fetch(GUILD_ID);
+  const members = new Map(await guild.members.fetch());
+
+  let replyText = "";
+  for (const {from, to, amount} of refunds) {
+    const fromMember = members.get(from);
+    const toMember = members.get(to);
+    replyText += `${
+      fromMember === undefined ? "(存在しないユーザー)" : fromMember.displayName
+    }が${
+      toMember === undefined ? "(存在しないユーザー)" : toMember.displayName
+    }に${
+      amount
+    }円返金する\n`;
+  }
   await interaction.reply(replyText);
 }
