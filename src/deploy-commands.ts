@@ -42,7 +42,10 @@ const commands = [
       option
       .setName("個数")
       .setDescription("表示する個数")
-    )
+    ),
+  new SlashCommandBuilder()
+    .setName("refund")
+    .setDescription("支払いを合算したものを表示します")
 ].map((command) => command.toJSON());
 
 // おまじない　サーバーにコマンドを登録する
