@@ -119,7 +119,7 @@ export const historyCmd = async (client: Client<boolean>, interaction: ChatInput
   if (transactions.length > showCount) {
     replyTexts.push(`(他${transactions.length - showCount}件)`);
   }
-  const replyText: string = replyTexts.join();
+  const replyText: string = replyTexts.join("");
   await interaction.reply(replyText);
 }
 
@@ -190,11 +190,11 @@ export const listCmd = async (client: Client<boolean>, interaction: ChatInputCom
       }が${
         toMember === undefined ? "(存在しないユーザー)" : toMember.displayName
       }に${
-        amount
+        -amount
       }円返金する\n`
     );
   }
-  const replyText = replyTexts.join();
+  const replyText = replyTexts.join("");
   await interaction.reply(replyText);
 }
 
