@@ -52,14 +52,14 @@ const commands = [
     .setDescription('返金処理をします')
     .addUserOption((option) => 
       option
-        .setName('返金した人')
-        .setDescription('返金を終えた人')
+        .setName('返金する人')
+        .setDescription('これから返金する人')
         .setRequired(true)
     )
     .addUserOption((option) =>
       option
-        .setName('返金してもらった人')
-        .setDescription('お金を貸していた人')
+        .setName('返金してもらう人')
+        .setDescription('これから返金してもらう人')
         .setRequired(true)
     ),
 ].map((command) => command.toJSON());
