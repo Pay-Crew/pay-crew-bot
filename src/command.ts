@@ -1,42 +1,20 @@
 import assert from "assert";
-import { CacheType, ChatInputCommandInteraction, Client, Guild, GuildMember } from "discord.js";
+import { CacheType, ChatInputCommandInteraction, Client } from "discord.js";
 import { Transaction, readTransactions, writeTransactions } from "./transaction";
 
 const GUILD_ID = process.env.GUILD_ID;
-
-const historyReplyMsg = (n: number, transactions: Transaction[], guild: Guild) => {
-  assert(0 <= n);
-  
-  let replyText = "";
-  for (const {i, transaction} of transactions
-    .map((transaction, i) => ({i: i + 1, transaction}))
-    .slice(transactions.length > n ? transactions.length - n : undefined)
-    .reverse()
-  ) {
-    const payer = guild.members.cache.get(transaction.payer);
-    const participant = guild.members.cache.get(transaction.participant);
-    replyText += `${i}: ${
-      payer === undefined ? "(存在しないユーザー)" : payer.displayName
-    }が${
-      participant === undefined ? "(存在しないユーザー)" : participant.displayName
-    }の分のお金を${transaction.amount}円払った\n`;
-  }
-  if (transactions.length > n) {
-    replyText += `(他${transactions.length - n}件)`
-  }
-  return replyText;
-}
+assert(GUILD_ID !== undefined);
 
 export const insertCmd = async (client: Client<boolean>, interaction: ChatInputCommandInteraction<CacheType>) => {
-  // 今までの履歴を持ってくる
-  const transactions = readTransactions();
+  // 履歴の読み込み
+  const transactions: Transaction[] = readTransactions();
 
-  // 受け取った引数はこんな感じで取り出せる
-  const participant = interaction.options.getUser("返金する人", true).id;
-  const payer = interaction.options.getUser("支払った人", true).id;
-  const amount = interaction.options.getInteger("金額", true);
+  // 引数の受け取り
+  const participant: string = interaction.options.getUser("返金する人", true).id;
+  const payer: string = interaction.options.getUser("支払った人", true).id;
+  const amount: number = interaction.options.getInteger("金額", true);
 
-  // 新データ作成
+  // 新データ作成・追加
   const newData: Transaction = {
     participant,
     payer,
@@ -44,48 +22,59 @@ export const insertCmd = async (client: Client<boolean>, interaction: ChatInputC
   };
   transactions.push(newData);
 
-  assert(GUILD_ID !== undefined);
+  // 履歴の書き込み
+  writeTransactions(transactions);
+
+  // サーバー情報の取得
   const guild = await client.guilds.fetch(GUILD_ID);
 
-  // 応答文章作成
-  let replyText = historyReplyMsg(10, transactions, guild);
-  await interaction.reply(replyText);
+  // idからmemberを取得
+  const participantMember = guild.members.cache.get(participant);
+  const payerMember = guild.members.cache.get(payer);
 
-  // Storage.jsonに新データを追加したものを書き込む
-  writeTransactions(transactions);
+  // メッセージ送信
+  const replyText: string = `以下の支払いを追加しました。\n\t返金する人: ${
+    participantMember === undefined ? ("存在しないユーザー") : participantMember.displayName
+  }\n\t払った人: ${
+    payerMember === undefined ? ("存在しないユーザー") : payerMember.displayName
+  }\n\t金額: ${
+    amount
+  }`;
+  await interaction.reply(replyText);
 };
 
 export const deleteCmd = async (client: Client<boolean>, interaction: ChatInputCommandInteraction<CacheType>) => {
-  // 1. 今までの履歴を持ってくる
-  const transactions = readTransactions();
+  // 履歴の読み込み
+  const transactions: Transaction[] = readTransactions();
 
-  // 2. Integer(整数)としてインデックスを受け取る
-  const index = interaction.options.getInteger("id", true);
+  // 引数の受け取り
+  const index: number = interaction.options.getInteger("id", true);
 
-  // 3. バリデーション: その番号のデータが本当に存在するか確認
-  if (index < 1 || index > transactions.length) {
-    await interaction.reply({ content: `ID: ${index} のデータは見つかりませんでした。（0 〜 ${transactions.length - 1} の範囲で指定してください）`, ephemeral: true });
+  // バリデーション
+  if (index < 1 || transactions.length < index) {
+    await interaction.reply({ content: `ID: ${index} のデータは見つかりませんでした。（1 〜 ${transactions.length} の範囲で指定してください）`, ephemeral: true });
     return;
   }
 
-  // 4. 削除実行
-  // spliceは削除された要素を配列で返すので、何が消えたか取得しておくと親切です
-  const deletedItem = transactions.splice(index - 1, 1)[0];
+  // 削除実行
+  // indexが一つずれている
+  const deletedItem: Transaction = transactions.splice(index - 1, 1)[0];
 
-  // 5. 重要: 変更内容をファイルに書き込む（保存）
+  // 履歴の書き込み
   writeTransactions(transactions);
 
-  assert(GUILD_ID !== undefined);
+  // サーバー情報の取得
   const guild = await client.guilds.fetch(GUILD_ID);
 
-  const payer = guild.members.cache.get(deletedItem.payer);
-  const participant = guild.members.cache.get(deletedItem.participant);
+  // idからmemberを取得
+  const payerMember = guild.members.cache.get(deletedItem.payer);
+  const participantMember = guild.members.cache.get(deletedItem.participant);
 
-  // 6. 完了メッセージ
-  const replyText = `以下ののデータを削除しました。\n\t返金する人: ${
-    participant === undefined ? ("存在しないユーザー") : participant.displayName
+  // メッセージ送信
+  const replyText: string = `以下の支払いを削除しました。\n\t返金する人: ${
+    participantMember === undefined ? ("存在しないユーザー") : participantMember.displayName
   }\n\t払った人: ${
-    payer === undefined ? ("存在しないユーザー") : payer.displayName
+    payerMember === undefined ? ("存在しないユーザー") : payerMember.displayName
   }\n\t金額: ${
     deletedItem.amount
   }`;
@@ -93,90 +82,119 @@ export const deleteCmd = async (client: Client<boolean>, interaction: ChatInputC
 };
 
 export const historyCmd = async (client: Client<boolean>, interaction: ChatInputCommandInteraction<CacheType>) => {
-  const transactions = readTransactions();
+  // 履歴の読み込み
+  const transactions: Transaction[] = readTransactions();
 
-  const t = interaction.options.getInteger("個数");
-  const n = t === null ? 10 : t;
+  // 引数の受け取り
+  const countNullable: number | null = interaction.options.getInteger("個数");
+  const count: number = countNullable === null ? 10 : countNullable;
 
-  assert(GUILD_ID !== undefined);
+  // 表示個数
+  const showCount: number = transactions.length >= count ? count : transactions.length;
+
+  // サーバー情報の取得
   const guild = await client.guilds.fetch(GUILD_ID);
 
-  let replyText = historyReplyMsg(n, transactions, guild);
+  // メッセージ送信
+  const replyTexts: string[] = [];
+  for (const {i, transaction} of transactions
+    // indexを1ずらす
+    .map((transaction, i) => ({i: i + 1, transaction}))
+    // 逆順
+    .reverse()
+    // 表示個数分だけ取得
+    .slice(0, showCount)
+  ) {
+    // idからmemberを取得
+    const payerMember = guild.members.cache.get(transaction.payer);
+    const participantMember = guild.members.cache.get(transaction.participant);
+    replyTexts.push(
+      `${i}: ${
+        payerMember === undefined ? "(存在しないユーザー)" : payerMember.displayName
+      }が${
+        participantMember === undefined ? "(存在しないユーザー)" : participantMember.displayName
+      }の分のお金を${transaction.amount}円払った\n`
+    );
+  }
+  if (transactions.length > showCount) {
+    replyTexts.push(`(他${transactions.length - showCount}件)`);
+  }
+  const replyText: string = replyTexts.join();
   await interaction.reply(replyText);
 }
 
-export const listCmd = async (client: Client<boolean>, interaction: ChatInputCommandInteraction<CacheType>) => {
-  const transactions = readTransactions();
+type Refund = {from: string, to: string, amount: number};
+const refundList = () => {
+  // 履歴の読み込み
+  const transactions: Transaction[] = readTransactions();
 
-  const memberAmounts = new Map<string, number>();
+  const memberAmounts: Map<string, number> = new Map<string, number>();
   for (const transaction of transactions) {
     const payerAmount = memberAmounts.get(transaction.payer);
-    if (payerAmount === undefined) {
-      memberAmounts.set(transaction.payer, transaction.amount);
-    } else {
-      memberAmounts.set(transaction.payer, payerAmount + transaction.amount)
-    }
+    memberAmounts.set(transaction.payer, (payerAmount === undefined ? 0 : payerAmount) + transaction.amount);
     
     const participantAmount = memberAmounts.get(transaction.participant);
-    if (participantAmount === undefined) {
-      memberAmounts.set(transaction.participant, -transaction.amount);
-    } else {
-      memberAmounts.set(transaction.participant, participantAmount - transaction.amount)
-    }
+    memberAmounts.set(transaction.participant, (participantAmount === undefined ? 0 : participantAmount) - transaction.amount)
   }
 
-  const positiveRefundMembers: {member: string, amount: number}[] = [];
-  const negativeRefundMembers: {member: string, amount: number}[] = [];
-  for (const [member, amount] of memberAmounts) {
-    if (amount > 0) {
-      positiveRefundMembers.push({member, amount});
-    } else if (amount < 0) {
-      negativeRefundMembers.push({member, amount});
-    }
-  }
-  positiveRefundMembers.sort((a, b) => (b.amount - a.amount));
-  negativeRefundMembers.sort((a, b) => (b.amount - a.amount));
+  type MemberAmount = {member: string, amount: number};
+  const positiveMembers: MemberAmount[] = [];
+  const negativeMembers: MemberAmount[] = [];
+  memberAmounts.forEach((v, k) => {if (v > 0) {
+    positiveMembers.push({member: k, amount: v});
+  } else if (v < 0) {
+    negativeMembers.push({member: k, amount: v});
+  }})
+  positiveMembers.sort((a, b) => (b.amount - a.amount));
+  negativeMembers.sort((a, b) => (b.amount - a.amount));
 
-  const refunds: {from: string, to: string, amount: number}[] = []
-  let positiveRefundMembersIndex = 0;
-  let negativeRefundMembersIndex = 0;
-  while (positiveRefundMembersIndex < positiveRefundMembers.length && negativeRefundMembersIndex < negativeRefundMembers.length) {
-    if (positiveRefundMembers[positiveRefundMembersIndex].amount >= -negativeRefundMembers[negativeRefundMembersIndex].amount) {
+  const refunds: Refund[] = []
+  let pIndex = 0;
+  let nIndex = 0;
+  while (pIndex < positiveMembers.length && nIndex < negativeMembers.length) {
+    if (positiveMembers[pIndex].amount >= -negativeMembers[nIndex].amount) {
       refunds.push({
-        from: negativeRefundMembers[negativeRefundMembersIndex].member, 
-        to: positiveRefundMembers[positiveRefundMembersIndex].member,
-        amount: negativeRefundMembers[negativeRefundMembersIndex].amount
+        from: negativeMembers[nIndex].member, 
+        to: positiveMembers[pIndex].member,
+        amount: negativeMembers[nIndex].amount
       });
-      positiveRefundMembers[positiveRefundMembersIndex].amount -= negativeRefundMembers[negativeRefundMembersIndex].amount;
-      negativeRefundMembers[negativeRefundMembersIndex].amount = 0;
-      negativeRefundMembersIndex += 1;
+      positiveMembers[pIndex].amount -= negativeMembers[nIndex].amount;
+      negativeMembers[nIndex].amount = 0;
+      nIndex += 1;
     } else {
       refunds.push({
-        from: negativeRefundMembers[negativeRefundMembersIndex].member, 
-        to: positiveRefundMembers[positiveRefundMembersIndex].member,
-        amount: positiveRefundMembers[positiveRefundMembersIndex].amount
+        from: negativeMembers[nIndex].member, 
+        to: positiveMembers[pIndex].member,
+        amount: positiveMembers[pIndex].amount
       });
-      positiveRefundMembers[positiveRefundMembersIndex].amount = 0;
-      negativeRefundMembers[negativeRefundMembersIndex].amount -= positiveRefundMembers[positiveRefundMembersIndex].amount;
-      positiveRefundMembersIndex += 1;
+      positiveMembers[pIndex].amount = 0;
+      negativeMembers[nIndex].amount -= positiveMembers[pIndex].amount;
+      pIndex += 1;
     }
   }
+  return refunds;
+}
 
-  assert(GUILD_ID !== undefined);
+export const listCmd = async (client: Client<boolean>, interaction: ChatInputCommandInteraction<CacheType>) => {
+  const refunds = refundList();
+
   const guild = await client.guilds.fetch(GUILD_ID);
 
-  let replyText = "";
+  const replyTexts: string[] = [];
   for (const {from, to, amount} of refunds) {
     const fromMember = guild.members.cache.get(from);
     const toMember = guild.members.cache.get(to);
-    replyText += `${
-      fromMember === undefined ? "(存在しないユーザー)" : fromMember.displayName
-    }が${
-      toMember === undefined ? "(存在しないユーザー)" : toMember.displayName
-    }に${
-      amount
-    }円返金する\n`;
+    replyTexts.push(
+      `${
+        fromMember === undefined ? "(存在しないユーザー)" : fromMember.displayName
+      }が${
+        toMember === undefined ? "(存在しないユーザー)" : toMember.displayName
+      }に${
+        amount
+      }円返金する\n`
+    );
   }
+  const replyText = replyTexts.join();
   await interaction.reply(replyText);
 }
 
