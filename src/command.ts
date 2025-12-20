@@ -34,7 +34,7 @@ export const insertCmd = async (
     participant,
     payer,
     amount,
-    memo: memo === null ? "" : memo,
+    memo: memo === null ? "(No Title)" : memo,
     date: new Date()
   };
   transactions.push(newData);

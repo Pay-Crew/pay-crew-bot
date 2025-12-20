@@ -33,9 +33,13 @@ export const equalWidthFormat = (value: string, dight: number, zeroPadding?: boo
     let wideCount: number = 0;
     let count: number = 0;
     for (const c of value) {
-      cuttedString += c;
       if (wideWidthChar(c)) {
         if (wideCount === 0) {
+          if (count >= dight - 8) {
+            count -= 5;
+            cuttedString = `${" ".repeat(wideCount)}${cuttedString}${".".repeat(dight - count)}`;
+            break;
+          }
           wideCount = 3;
           count += 5;
         }
@@ -43,8 +47,10 @@ export const equalWidthFormat = (value: string, dight: number, zeroPadding?: boo
       } else {
         count += 1;
       }
+      cuttedString += c;
       if (count >= dight - 3) {
-        cuttedString = `${" ".repeat(wideCount)}${cuttedString}${".".repeat(dight - count)}`
+        cuttedString = `${" ".repeat(wideCount)}${cuttedString}${".".repeat(dight - count)}`;
+        break;
       }
     }
     return cuttedString;
