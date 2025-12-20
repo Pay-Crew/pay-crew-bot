@@ -35,6 +35,7 @@ const commands = [
       .setDescription('削除したいデータの番号（ID）')
       .setRequired(true)
     ),
+  // 履歴表示
   new SlashCommandBuilder()
     .setName("history")
     .setDescription("支払いの履歴を最新のものから表示します")
@@ -43,23 +44,25 @@ const commands = [
       .setName("個数")
       .setDescription("表示する個数")
     ),
+  // 返金表示
   new SlashCommandBuilder()
     .setName("list")
     .setDescription("支払いを合算したものを表示します")
   ,
+  // 返金
   new SlashCommandBuilder()
     .setName("refund")
     .setDescription('返金処理をします')
     .addUserOption((option) => 
       option
-        .setName('返金する人')
-        .setDescription('これから返金する人')
+        .setName('返金するorされる人1')
+        .setDescription('これから返金する人もしくはこれから返金してもらう人')
         .setRequired(true)
     )
     .addUserOption((option) =>
       option
-        .setName('返金してもらう人')
-        .setDescription('これから返金してもらう人')
+        .setName('返金するorされる人2')
+        .setDescription('これから返金する人もしくはこれから返金してもらう人')
         .setRequired(true)
     ),
 ].map((command) => command.toJSON());

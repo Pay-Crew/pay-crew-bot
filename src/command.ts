@@ -162,7 +162,7 @@ export const historyCmd = async (
   if (transactions.length > showCount) {
     replyTexts.push(`(他${transactions.length - showCount}件)`);
   }
-  const replyText: string = replyTexts.join("");
+  const replyText: string = replyTexts.length === 0 ? "まだ何もありません！" : `\`\`\`\n${replyTexts.join("")}\n\`\`\``;
   await interaction.reply(replyText);
 };
 
@@ -241,15 +241,15 @@ export const listCmd = async (
     const toMember = guild.members.cache.get(to);
     replyTexts.push(
       `${
-        fromMember === undefined
-          ? "(存在しないユーザー)"
-          : fromMember.displayName
-      }が${
+        fromMember === undefined ? "(存在しないユーザー)" : fromMember.displayName
+      } ---- ${
+        amount
+      }円 ---> ${
         toMember === undefined ? "(存在しないユーザー)" : toMember.displayName
-      }に${amount}円返金する\n`
+      }\n`
     );
   }
-  const replyText = replyTexts.join("");
+  const replyText = replyTexts.length === 0 ? "現在、支払いは存在しません" : `現在残っている返金は以下のとおりです\n\`\`\`\n${replyTexts.join("")}\n\`\`\``;
   await interaction.reply({
     content: replyText,
   });
@@ -259,11 +259,8 @@ export const refundCmd = async (
   client: Client<boolean>,
   interaction: ChatInputCommandInteraction<CacheType>
 ) => {
-  const refundmanId = interaction.options.getUser("返金する人", true).id;
-  const paymentmanId = interaction.options.getUser(
-    "返金してもらう人",
-    true
-  ).id;
+  const user1 = interaction.options.getUser("返金するorされる人1", true).id;
+  const user2 = interaction.options.getUser("返金するorされる人2", true).id;
 
   // 2. 現在の清算リストを取得
   const refunds = refundList();
@@ -271,7 +268,7 @@ export const refundCmd = async (
   // 3. 該当するペアのデータを参照
   // refundList は {from: 返す人, to: 貰う人, amount: 負の数} という構造を想定
   const targetRefund = refunds.find(
-    (r) => r.from === refundmanId && r.to === paymentmanId
+    (r) => (r.from === user1 && r.to === user2) || (r.from === user2 && r.to === user1)
   );
 
   if (!targetRefund) {
@@ -282,7 +279,9 @@ export const refundCmd = async (
     return;
   }
 
-  const refundAmount = targetRefund.amount; // 負の数を正の数に変換
+  const refundmanId = targetRefund.from;
+  const paymentmanId = targetRefund.to;
+  const refundAmount = targetRefund.amount;
 
   // 4. ボタンの作成
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
