@@ -1,5 +1,4 @@
-import assert from "assert";
-import { CacheType, ChatInputCommandInteraction, Client } from "discord.js";
+import { CacheType, ChatInputCommandInteraction, Client, User } from "discord.js";
 import {
   Transaction,
   readTransactions,
@@ -11,139 +10,123 @@ import {
   ButtonStyle,
   ComponentType,
 } from "discord.js";
-import { equalWidthFormat } from "./format";
+import { dateToString, equalWidthFormat } from "./format";
 
-// ★削除: ここで固定のIDを定義するのをやめます
-// const GUILD_ID = process.env.GUILD_ID;
-// assert(GUILD_ID !== undefined);
+export type ResultMsg = {
+  // 成功したかどうか
+  isOk: boolean,
+  // メッセージ
+  msg: string | null
+};
 
-export const insertCmd = async (
-  client: Client<boolean>,
-  interaction: ChatInputCommandInteraction<CacheType>
-) => {
-  // ★追加: コマンドが実行されたサーバーのIDを取得
-  const guildId = interaction.guildId;
-  if (guildId === null) {
-      await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
-      return;
+const okMsg = (msg: string) => {
+  return {
+    isOk: true,
+    msg
   }
+}
 
-  // ★変更: 取得した guildId を渡す
-  const transactions: Transaction[] | null = readTransactions(guildId);
+const errMsg = (msg: string) => {
+  return {
+    isOk: false,
+    msg
+  }
+}
 
+export type CmdUser = {
+  id: string,
+  name: string
+};
+
+export const insertCmd = (
+  groupId: string,
+  participant: CmdUser,
+  payer: CmdUser,
+  amount: number,
+  title: string,
+): ResultMsg => {
+  // グループのIDからデータを取得
+  const transactions: Transaction[] | null = readTransactions(groupId);
   if (transactions === null) {
-    await interaction.reply("データ読み込みの際にエラーが発生しました。");
-    return;
+    return errMsg("データ読み込みの際にエラーが発生しました。");
   }
-
-  // 引数の受け取り
-  const participant: string = interaction.options.getUser("返金する人", true).id;
-  const payer: string = interaction.options.getUser("支払った人", true).id;
-  const amount: number = interaction.options.getInteger("金額", true);
-  const memo: string | null = interaction.options.getString("メモ");
 
   // 新データ作成・追加
   const newData: Transaction = {
-    participant,
-    payer,
+    participant: participant.id,
+    payer: payer.id,
     amount,
-    memo: memo === null ? "(No Title)" : memo,
+    memo: title,
     date: new Date()
   };
   transactions.push(newData);
 
-  // ★変更: guildId を渡して書き込み
-  writeTransactions(guildId, transactions);
+  // データを書き込み
+  writeTransactions(groupId, transactions);
 
-  // ★変更: サーバー情報の取得も guildId を使う
-  const guild = await client.guilds.fetch(guildId);
-
-  // idからmemberを取得
-  const participantMember = guild.members.cache.get(participant);
-  const payerMember = guild.members.cache.get(payer);
-
-  // メッセージ送信
+  // メッセージ作成
   const replyText: string = `以下の支払いを追加しました。\n\t返金する人: ${
-    participantMember === undefined ? "存在しないユーザー" : participantMember.displayName
+    participant.name
   }\n\t払った人: ${
-    payerMember === undefined ? "存在しないユーザー" : payerMember.displayName
-  }\n\t金額: ${amount}`;
-  await interaction.reply(replyText);
+    payer.name
+  }\n\t金額: ${
+    amount
+  }\n\tタイトル: ${
+    title
+  }`;
+  return okMsg(replyText);
 };
 
-export const deleteCmd = async (
-  client: Client<boolean>,
-  interaction: ChatInputCommandInteraction<CacheType>
-) => {
-  // ★追加
-  const guildId = interaction.guildId;
-  if (!guildId) return;
-
-  // ★変更
-  const transactions: Transaction[] | null = readTransactions(guildId);
-
+export const deleteCmd = (
+  groupId: string,
+  index: number,
+  getUserName: (id: string) => string
+): ResultMsg => {
+  // グループのIDからデータ取得
+  const transactions: Transaction[] | null = readTransactions(groupId);
   if (transactions === null) {
-    await interaction.reply("データ読み込みの際にエラーが発生しました。");
-    return;
+    return okMsg("データ読み込みの際にエラーが発生しました。")
   }
 
-  // 引数の受け取り
-  const index: number = interaction.options.getInteger("id", true);
-
-  // バリデーション
+  // indexのバリデーション
   if (index < 1 || transactions.length < index) {
-    await interaction.reply({
-      content: `ID: ${index} のデータは見つかりませんでした。（1 〜 ${transactions.length} の範囲で指定してください）`,
-      ephemeral: true,
-    });
-    return;
+    return errMsg(`ID: ${index} のデータは見つかりませんでした。（1 〜 ${transactions.length} の範囲で指定してください）`);
   }
 
   // 削除実行
   const deletedItem: Transaction = transactions.splice(index - 1, 1)[0];
 
-  // ★変更
-  writeTransactions(guildId, transactions);
+  // 削除後のデータを書き込み
+  writeTransactions(groupId, transactions);
 
-  // ★変更
-  const guild = await client.guilds.fetch(guildId);
-
-  // idからmemberを取得
-  const payerMember = guild.members.cache.get(deletedItem.payer);
-  const participantMember = guild.members.cache.get(deletedItem.participant);
-
-  // メッセージ送信
+  // メッセージ作成
   const replyText: string = `以下の支払いを削除しました。\n\t返金する人: ${
-    participantMember === undefined
-      ? "存在しないユーザー"
-      : participantMember.displayName
+    getUserName(deletedItem.participant)
   }\n\t払った人: ${
-    payerMember === undefined ? "存在しないユーザー" : payerMember.displayName
-  }\n\t金額: ${deletedItem.amount}`;
-  await interaction.reply({ content: replyText });
-};
+    getUserName(deletedItem.payer)
+  }\n\t金額: ${
+    deletedItem.amount
+  }\n\tタイトル: ${
+    deletedItem.memo
+  }`;
+  return okMsg(replyText);
+}
 
-export const historyCmd = async (
-  client: Client<boolean>,
-  interaction: ChatInputCommandInteraction<CacheType>
+export const historyCmd = (
+  groupId: string,
+  count: number | null,
+  user1: CmdUser | null,
+  user2: CmdUser | null,
+  getUserName: (id: string) => string
 ) => {
-  // ★追加
-  const guildId = interaction.guildId;
-  if (!guildId) return;
-
-  // ★変更
-  const transactions: Transaction[] | null = readTransactions(guildId);
-
+  // データ取得
+  const transactions: Transaction[] | null = readTransactions(groupId);
   if (transactions === null) {
-    await interaction.reply("データ読み込みの際にエラーが発生しました。");
-    return;
+    return errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
   // 引数の受け取り
-  const countNullable: number | null = interaction.options.getInteger("個数");
-  const count: number = countNullable === null ? 10 : countNullable;
-  const user1Nullable = interaction.options.getUser("検索するユーザー1");
-  const user2Nullable = interaction.options.getUser("検索するユーザー2");
+  const countNonNullable: number = count === null ? 10 : count;
 
   // Userで検索
   type TransactionWithIndex = {i: number, transaction: Transaction};
@@ -151,52 +134,33 @@ export const historyCmd = async (
     // 1つずらしたindexを保持
     .map((transaction, i) => ({ i: i + 1, transaction }))
     .filter(({i, transaction}) => (
-      (user1Nullable === null || transaction.payer === user1Nullable.id || transaction.participant === user1Nullable.id) &&
-      (user2Nullable === null || transaction.payer === user2Nullable.id || transaction.participant === user2Nullable.id)
+      (user1 === null || transaction.payer === user1.id || transaction.participant === user1.id) &&
+      (user2 === null || transaction.payer === user2.id || transaction.participant === user2.id)
     ));
 
   // 表示個数
-  const showCount: number = transactions.length >= count
-    ? count
+  const showCount: number = transactions.length >= countNonNullable
+    ? countNonNullable
     : transactions.length;
 
-  // ★変更
-  const guild = await client.guilds.fetch(guildId);
-
-  // メッセージ送信
+  // メッセージ作成
   const replyTexts: string[] = [];
   for (const { i, transaction } of transactionsFiltered
     .reverse()
     .slice(0, showCount)) {
     // idからmemberを取得
-    const payerMember = guild.members.cache.get(transaction.payer);
-    const payerDisplayName = payerMember === undefined
-          ? "(存在しないユーザー)"
-          : payerMember.displayName;
-    const participantMember = guild.members.cache.get(transaction.participant);
-    const participantDisplayName = participantMember === undefined
-          ? "(存在しないユーザー)"
-          : participantMember.displayName;
-    const dateMsg = `${
-      equalWidthFormat(`${transaction.date.getFullYear()}`, 4, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
-    }-${
-      equalWidthFormat(`${transaction.date.getMonth() + 1}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
-    }-${
-      equalWidthFormat(`${transaction.date.getDate()}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
-    } ${
-      equalWidthFormat(`${transaction.date.getHours()}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
-    }:${
-      equalWidthFormat(`${transaction.date.getMinutes()}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
-    }:${
-      equalWidthFormat(`${transaction.date.getSeconds()}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
-    }`;
+    const participantName = getUserName(transaction.participant);
+    const payerName = getUserName(transaction.payer);
+    // 日付をstringに変換
+    const dateMsg = dateToString(transaction.date);
+    // メッセージを一行追加
     replyTexts.push(
       `[${i}] ${
         equalWidthFormat(transaction.memo, 20, {widthRate: {narrow: 3, wide: 5}, cut: true})
       }: ${
-        equalWidthFormat(participantDisplayName, 15, {widthRate: {narrow: 3, wide: 5}, cut: true})
+        equalWidthFormat(participantName, 15, {widthRate: {narrow: 3, wide: 5}, cut: true})
       } は ${
-        equalWidthFormat(payerDisplayName, 15, {widthRate: {narrow: 3, wide: 5}, cut: true})
+        equalWidthFormat(payerName, 15, {widthRate: {narrow: 3, wide: 5}, cut: true})
       } に ${
         equalWidthFormat(`${transaction.amount}`, 8, {widthRate: {narrow: 3, wide: 5}})
       }円 払ってもらった(${dateMsg})\n`
@@ -206,13 +170,13 @@ export const historyCmd = async (
     replyTexts.push(`(他${transactions.length - showCount}件)`);
   }
   const replyText: string = replyTexts.length === 0 ? "見つかりませんでした" : `\`\`\`\n${replyTexts.join("")}\n\`\`\``;
-  await interaction.reply(replyText);
+  return okMsg(replyText);
 };
 
 type Refund = { from: string; to: string; amount: number };
 
 // ★変更: 引数で guildId を受け取るように変更
-const refundList = (guildId: string): Refund[] | null => {
+const getRefundList = (guildId: string): Refund[] | null => {
   // ★変更
   const transactions: Transaction[] | null = readTransactions(guildId);
 
@@ -285,7 +249,7 @@ export const listCmd = async (
   if (!guildId) return;
 
   // ★変更: 引数を渡す
-  const refunds: Refund[] | null = refundList(guildId);
+  const refunds: Refund[] | null = getRefundList(guildId);
 
   if (refunds === null) {
     await interaction.reply("データ読み込みの際にエラーが発生しました。");
@@ -328,7 +292,7 @@ export const refundCmd = async (
 
   // 2. 現在の清算リストを取得
   // ★変更: 引数を渡す
-  const refunds: Refund[] | null = refundList(guildId);
+  const refunds: Refund[] | null = getRefundList(guildId);
 
   if (refunds == null) {
     await interaction.reply("データ読み込みの際にエラーが発生しました。");

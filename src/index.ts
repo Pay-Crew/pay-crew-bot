@@ -1,10 +1,10 @@
-import { Client, GatewayIntentBits, Events, ChannelType } from "discord.js";
-import { deleteCmd, historyCmd, insertCmd, listCmd, refundCmd } from "./command";
-import assert from "assert";
+import { Client, GatewayIntentBits, Events, ChannelType, Channel } from "discord.js";
+import { listCmd, refundCmd } from "./command";
+import { insertDiscordCmd, deleteDiscordCmd, historyDiscordCmd } from "./command-discord";
 
 //////
 
-export const client = new Client({
+const client: Client<boolean> = new Client({
   intents: [
     // discord botが使う情報をここに書く　権限以上のことを書くとエラーになる
     GatewayIntentBits.Guilds,
@@ -16,21 +16,27 @@ export const client = new Client({
 
 // チャンネルIDはdiscordのチャンネルの部分を右クリックすると入手できる
 // ギルドというのがサーバー
-const CHANNEL_GENERAL = "1446799876917694598";
-const GUILD_ID = process.env.GUILD_ID;
-assert(GUILD_ID !== undefined);
+// 試験用サーバーの情報
+const CHANNEL_ID: string = "1446799876917694598";
+// const GUILD_ID: string | undefined = process.env.GUILD_ID;
+// assert(GUILD_ID !== undefined);
 
 async function sendMessage(channelId: string, message: string) {
-  const channel = await client.channels.fetch(channelId);
+  const channel: Channel | null = await client.channels.fetch(channelId);
   // 型チェック
-  if (channel === null || channel.type !== ChannelType.GuildText) {
+  if (channel === null) {
     console.log(
-      "channel作れませんでしたもしくはテキストチャンネルではありませんでした"
+      "チャンネルに接続できませんでした"
     );
-  } else {
-    // これでメッセージを送れる
-    await channel.send(message);
+    return;
+  } else if (channel.type !== ChannelType.GuildText) {
+    console.log(
+      "テキストチャンネルではありませんでした"
+    );
+    return;
   }
+  // これでメッセージを送れる
+  await channel.send(message);
 }
 
 // addEventListenerみたいなやつ
@@ -38,18 +44,21 @@ async function sendMessage(channelId: string, message: string) {
 client.once(Events.ClientReady, async (c) => {
   console.log(`準備完了！ ${c.user.tag} としてログインしました。`);
   // ログイン時に1度だけメッセージを送れる
-  sendMessage(CHANNEL_GENERAL, "yeah!");
-  const guild = await client.guilds.fetch(GUILD_ID);
-  await guild.members.fetch();
+  sendMessage(CHANNEL_ID, "yeah!");
+  // メンバーを取得
+  // if (GUILD_ID !== undefined) {
+  //   const guild = await client.guilds.fetch(GUILD_ID);
+  //   await guild.members.fetch();
+  // }
 });
 
 // client.onは条件に当てはまるたびに実行される
-client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return;
-  if (message.content === "Pong!") {
-    await message.reply("Pong!");
-  }
-});
+// client.on(Events.MessageCreate, async (message) => {
+//   if (message.author.bot) return;
+//   if (message.content === "Pong!") {
+//     await message.reply("Pong!");
+//   }
+// });
 
 // コマンドの処理
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -58,11 +67,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   // コマンド名で分岐
   if (interaction.commandName === "insert") {
-    await insertCmd(client, interaction);
+    await insertDiscordCmd(client, interaction);
   } else if (interaction.commandName === "delete") {
-    await deleteCmd(client, interaction);
+    await deleteDiscordCmd(client, interaction);
   } else if (interaction.commandName === "history") {
-    await historyCmd(client, interaction);
+    await historyDiscordCmd(client, interaction);
   } else if (interaction.commandName === "list") {
     await listCmd(client, interaction)
   } else if (interaction.commandName === "refund") {

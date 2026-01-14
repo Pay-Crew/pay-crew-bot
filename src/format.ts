@@ -62,3 +62,19 @@ export const equalWidthFormat = (value: string, dight: number, options?: {widthR
     return formattedValue;
   }
 }
+
+export const dateToString = (date: Date) => {
+  return `${
+    equalWidthFormat(`${date.getFullYear()}`, 4, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
+  }-${
+    equalWidthFormat(`${date.getMonth() + 1}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
+  }-${
+    equalWidthFormat(`${date.getDate()}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
+  } ${
+    equalWidthFormat(`${date.getHours()}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
+  }:${
+    equalWidthFormat(`${date.getMinutes()}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
+  }:${
+    equalWidthFormat(`${date.getSeconds()}`, 2, {widthRate: {narrow: 3, wide: 5}, zeroPadding: true})
+  }`;
+}

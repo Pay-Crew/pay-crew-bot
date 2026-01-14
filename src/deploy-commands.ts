@@ -24,8 +24,8 @@ const commands = [
       .setMinValue(1)
     )
     .addStringOption((option) => option
-      .setName('メモ')
-      .setDescription('支払いメモ')
+      .setName('件名')
+      .setDescription('支払い件名')
     ),
   // 削除
   new SlashCommandBuilder()
@@ -86,7 +86,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 console.log('登録開始');
 rest
   .put(
-    Routes.applicationGuildCommands(clientId, guildId),
+    Routes.applicationCommands(clientId),
     { body: commands },
   )
   .then((v) => console.log('コマンド登録成功'))
