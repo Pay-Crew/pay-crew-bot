@@ -57,6 +57,11 @@ const commands = [
     .setName("list")
     .setDescription("支払いを合算したものを表示します")
   ,
+  // 自分に関係ある返金を表示
+  new SlashCommandBuilder()
+    .setName("my-list")
+    .setDescription("支払いを合算したもののうち、あなたに関係あることを表示します")
+  ,
   // 返金
   new SlashCommandBuilder()
     .setName("refund")
