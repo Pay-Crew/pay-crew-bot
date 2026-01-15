@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, Guild, ModalBuilder, TextInputBuilder, User } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, Guild, LabelBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, User } from "discord.js";
 import { CmdUser, deleteCmd, historyCmd, insertCmd, listCmd, myListCmd, refundCmd } from "./command";
 
 const transDiscordUser = (user: User): CmdUser => {
@@ -368,12 +368,22 @@ export const buttonDiscordCmd = async (
 
 export const insertDiscordInteractiveCmd = async (
   client: Client<boolean>,
-  interaction: ButtonInteraction<CacheType>
+  // interaction: ButtonInteraction<CacheType>
+  interaction: ChatInputCommandInteraction<CacheType>
 ) => {
   // コマンドが実行されたサーバーのIDを取得
   const guildId: string | null = interaction.guildId;
   if (guildId === null) {
     await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
     return;
+  }
+
+  await interaction.reply({ content: "Sample" });
+
+  try {
+    const a = await interaction.channel?.awaitMessageComponent({ time: 6000 });
+    await a?.reply({ content: "Sample" })
+  } catch (e) {
+    console.log("Time out")
   }
 }
