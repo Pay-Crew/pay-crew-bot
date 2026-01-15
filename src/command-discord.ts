@@ -238,6 +238,8 @@ export const refundDiscordCmd = async (
   // ユーザー名取得用
   const guild = await client.guilds.fetch(guildId);
 
+  let confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
+
   // refundを実行
   const result = await refundCmd(
     guildId,
@@ -249,15 +251,15 @@ export const refundDiscordCmd = async (
         components: [row],
       });
       try {
-        const confirmation = await response.awaitMessageComponent({
+        confirmation.buttonInteration = await response.awaitMessageComponent({
           filter: (i) => i.user.id === interaction.user.id,
           time: 180_000,
           componentType: ComponentType.Button,
         });
-        if (confirmation.customId === "do_refund") {
+        if (confirmation.buttonInteration.customId === "do_refund") {
           return true;
         } else {
-          await confirmation.update({
+          await confirmation.buttonInteration.update({
             content: "返金処理はキャンセルされました（データ変更なし）。",
             components: [],
           });
@@ -279,11 +281,16 @@ export const refundDiscordCmd = async (
   // メッセージ送信
   if (result.msg === null) {
     return;
-  }
-  if (result.isOk) {
-    await interaction.reply(result.msg);
   } else {
-    await interaction.reply({ content: result.msg, ephemeral: true })
+    if (!interaction.replied) {
+      if (result.isOk) {
+        await interaction.reply({ content: result.msg });
+      } else {
+        await interaction.reply({ content: result.msg, ephemeral: true });
+      }
+    } else if (confirmation.buttonInteration !== undefined) {
+      await confirmation.buttonInteration.update(result.msg);
+    }
   }
 };
 
