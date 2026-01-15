@@ -316,7 +316,7 @@ const getRefundList = (guildId: string): Refund[] | null => {
   for (const [key, amount] of refundsMap) {
     // keyからparticipantIdとpayerIdを取得、逆向きの支払いのkeyを取得
     const [participantId, payerId]: string[] = key.split(">");
-    const reverseKey: string = getKey(participantId, payerId);
+    const reverseKey: string = getKey(payerId, participantId);
     
     // 逆向きをすでに処理していたら飛ばす
     if (refundsAlready.has(reverseKey)) {
@@ -354,7 +354,7 @@ export const listCmd = async (
   const refunds: Refund[] | null = getRefundList(groupId);
   if (refunds === null) {
     console.log(`Error: Failed to parse json file.
-gorupId: ${groupId}
+\tgorupId: ${groupId}
 `);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
@@ -448,7 +448,7 @@ gorupId: ${groupId}
 
   // 該当するペアのデータを参照
   const targetRefund: Refund | undefined = refunds.find((r) => (r.from === user1.id && r.to === user2.id) || (r.from === user2.id && r.to === user1.id));
-  if (targetRefund === undefined) {
+  if (targetRefund === undefined || targetRefund.amount === 0) {
     console.log(`Info: There is no refund.
 gorupId: ${groupId}
 `);
