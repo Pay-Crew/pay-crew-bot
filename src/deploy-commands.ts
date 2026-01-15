@@ -89,9 +89,9 @@ const commands = [
 // おまじない　サーバーにコマンドを登録する
 const token = process.env.DISCORD_BOT_TOKEN;
 const clientId = process.env.CLIENT_ID;
-const guildId = process.env.GUILD_ID;
+// const guildId = process.env.GUILD_ID;
 
-if (!token || !clientId || !guildId) {
+if (!token || !clientId) {
   throw new Error('環境変数が不足しています');
 }
 
