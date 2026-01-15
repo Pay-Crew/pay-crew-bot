@@ -76,6 +76,14 @@ const commands = [
       .setDescription('これから返金する人もしくはこれから返金してもらう人')
       .setRequired(true)
     ),
+  // ヘルプ
+  new SlashCommandBuilder()
+    .setName("help")
+    .setDescription("コマンドのヘルプを表示します。")
+    .addStringOption((option) => option
+      .setName("コマンド名")
+      .setDescription("詳細を知りたいコマンド名")
+  )
 ].map((command) => command.toJSON());
 
 // おまじない　サーバーにコマンドを登録する

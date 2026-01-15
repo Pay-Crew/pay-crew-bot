@@ -1,4 +1,5 @@
 // コマンドの処理(discordに依存しない部分)
+
 import {
   Transaction,
   readTransactions,
