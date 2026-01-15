@@ -49,6 +49,9 @@ export const insertCmd = (
   // グループのIDからデータを取得
   const transactions: Transaction[] | null = readTransactions(groupId);
   if (transactions === null) {
+    console.log(`Error: Failed to parse json file.
+\tgorupId: ${groupId}
+`);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
@@ -64,6 +67,15 @@ export const insertCmd = (
 
   // データを書き込み
   writeTransactions(groupId, transactions);
+  
+  console.log(`Info: Succeed in inserting the data below.
+\tgroupId: ${groupId}
+\tparticipant: ${newData.participant}
+\tpayer: ${newData.payer}
+\tamount: ${newData.amount}
+\tmemo: ${newData.memo}
+\tdate: ${newData.date}
+`);
 
   // メッセージ作成
   const replyText: string = `以下の支払いを追加しました。\n\t返金する人: ${
@@ -82,27 +94,44 @@ export const insertCmd = (
 export const deleteCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string,
-  // 削除したい支払いのindex(1-indexで算出したもの)
-  index: number,
+  // 削除したい支払いのid(1-indexで算出したもの)
+  id: number,
   // ユーザー名を取得する関数
   getUserName: (id: string) => Promise<string>
 ): Promise<ResultMsg> => {
   // グループのIDからデータ取得
   const transactions: Transaction[] | null = readTransactions(groupId);
   if (transactions === null) {
-    return okMsg("データ読み込みの際にエラーが発生しました。")
+    console.log(`Error: Failed to parse json file.
+\tgorupId: ${groupId}
+`);
+    return errMsg("データ読み込みの際にエラーが発生しました。")
   }
 
-  // indexのバリデーション
-  if (index < 1 || transactions.length < index) {
-    return errMsg(`ID: ${index} のデータは見つかりませんでした。（1 〜 ${transactions.length} の範囲で指定してください）`);
+  // idのバリデーション
+  if (id < 1 || transactions.length < id) {
+    console.log(`Warning: The id is out of range.
+\tgroupId: ${groupId}
+\tid: ${id}
+\tlen: ${transactions.length}
+`);
+    return errMsg(`ID: ${id} のデータは見つかりませんでした。（1 〜 ${transactions.length} の範囲で指定してください）`);
   }
 
   // 削除実行
-  const deletedItem: Transaction = transactions.splice(index - 1, 1)[0];
+  const deletedItem: Transaction = transactions.splice(id - 1, 1)[0];
 
   // 削除後のデータを書き込み
   writeTransactions(groupId, transactions);
+
+  console.log(`Info: Succeed in deleting the data below
+\tgroupId: ${groupId}
+\tparticipant: ${deletedItem.participant}
+\tpayer: ${deletedItem.payer}
+\tamount: ${deletedItem.amount}
+\tmemo: ${deletedItem.memo}
+\tdate: ${deletedItem.date}
+`)
 
   // メッセージ作成
   const replyText: string = `以下の支払いを削除しました。\n\t返金する人: ${
@@ -133,6 +162,9 @@ export const historyCmd = async (
   // グループのIDからデータを取得
   const transactions: Transaction[] | null = readTransactions(groupId);
   if (transactions === null) {
+    console.log(`Error: Failed to parse json file.
+gorupId: ${groupId}
+`);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
@@ -153,6 +185,10 @@ export const historyCmd = async (
   const showCount: number = transactions.length >= countNonNullable
     ? countNonNullable
     : transactions.length;
+  
+  console.log(`Info: Succeed in show the historys.
+groupId: ${groupId}
+`)
 
   // メッセージ作成
   const replyTexts: string[] = [];
@@ -317,8 +353,15 @@ export const listCmd = async (
   // グループのIDから返金を算出
   const refunds: Refund[] | null = getRefundList(groupId);
   if (refunds === null) {
+    console.log(`Error: Failed to parse json file.
+gorupId: ${groupId}
+`);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
+
+  console.log(`Info: Succeed in show the list.
+\tgroupId: ${groupId}
+`)
 
   const replyTexts: string[] = [];
   for (const { from, to, amount } of refunds) {
@@ -350,8 +393,15 @@ export const myListCmd = async (
   // グループのIDから返金を算出
   const refunds: Refund[] | null = getRefundList(groupId);
   if (refunds === null) {
+    console.log(`Error: Failed to parse json file.
+gorupId: ${groupId}
+`);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
+
+  console.log(`Info: Succeed in show the my-list.
+\tgroupId: ${groupId}
+`)
 
   const replyTexts: string[] = [];
   for (const { from, to, amount } of refunds) {
@@ -390,12 +440,18 @@ export const refundCmd = async (
   // グループのIDから返金を算出
   const refunds: Refund[] | null = getRefundList(groupId);
   if (refunds == null) {
+    console.log(`Error: Failed to parse json file.
+gorupId: ${groupId}
+`);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
   // 該当するペアのデータを参照
   const targetRefund: Refund | undefined = refunds.find((r) => (r.from === user1.id && r.to === user2.id) || (r.from === user2.id && r.to === user1.id));
   if (targetRefund === undefined) {
+    console.log(`Info: There is no refund.
+gorupId: ${groupId}
+`);
     return errMsg("該当する返金データが見つかりませんでした。");
   }
   const {from, to, amount}: Refund = targetRefund;
@@ -403,12 +459,18 @@ export const refundCmd = async (
   // 待機
   const askResult = await ask(targetRefund);
   if (!askResult) {
+    console.log(`Info: Canceled the refund.
+gorupId: ${groupId}
+`);
     return errMsg();
   }
 
   // グループのIDからデータを取得
   const transactions = readTransactions(groupId);
   if (transactions === null) {
+    console.log(`Error: Failed to parse json file.
+gorupId: ${groupId}
+`);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
@@ -424,6 +486,10 @@ export const refundCmd = async (
   
   // 書き込み
   writeTransactions(groupId, transactions);
+
+  console.log(`Info: Succeed in refunding.
+gorupId: ${groupId}
+`);
 
   return okMsg(`返金を記録しました：${
     await getUserName(from)

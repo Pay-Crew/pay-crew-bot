@@ -22,7 +22,6 @@ export type Transaction = {
   date: Date
 };
 
-// --- 型ガード関数群 (変更なし) ---
 const isTransaction = (data: any): data is Transaction => {
   return (
     typeof data === "object" &&
@@ -52,7 +51,6 @@ const isTransactionJson = (data: any): data is TransactionJson => {
 const isTransactionJsonArray = (data: any): data is TransactionJson[] => {
   return Array.isArray(data) && data.every((item) => isTransactionJson(item));
 }
-// ------------------------------
 
 const transactionArrayParse = (data: any): Transaction[] | null => {
   if (isTransactionJsonArray(data)) {
