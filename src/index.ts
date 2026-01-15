@@ -62,26 +62,31 @@ client.once(Events.ClientReady, async (c) => {
 
 // コマンドの処理
 client.on(Events.InteractionCreate, async (interaction) => {
-  // チャットコマンド以外（ボタンなど）は無視
-  if (!interaction.isChatInputCommand()) return;
-
-  // コマンド名で分岐
-  if (interaction.commandName === "insert") {
-    await insertDiscordCmd(client, interaction);
-  } else if (interaction.commandName === "delete") {
-    await deleteDiscordCmd(client, interaction);
-  } else if (interaction.commandName === "history") {
-    await historyDiscordCmd(client, interaction);
-  } else if (interaction.commandName === "list") {
-    await listDiscordCmd(client, interaction)
-  } else if (interaction.commandName === "my-list") {
-    await myListDiscordCmd(client, interaction)
-  } else if (interaction.commandName === "refund") {
-    await refundDiscordCmd(client, interaction)
-  } else if (interaction.commandName === "help") {
-    await helpDiscordCmd(client, interaction)
-  } else {
-    throw new Error("Unknown command")
+  if (interaction.isChatInputCommand()) {
+    // コマンド名で分岐
+    if (interaction.commandName === "insert") {
+      await insertDiscordCmd(client, interaction);
+    } else if (interaction.commandName === "delete") {
+      await deleteDiscordCmd(client, interaction);
+    } else if (interaction.commandName === "history") {
+      await historyDiscordCmd(client, interaction);
+    } else if (interaction.commandName === "list") {
+      await listDiscordCmd(client, interaction)
+    } else if (interaction.commandName === "my-list") {
+      await myListDiscordCmd(client, interaction)
+    } else if (interaction.commandName === "refund") {
+      await refundDiscordCmd(client, interaction)
+    } else if (interaction.commandName === "help") {
+      await helpDiscordCmd(client, interaction)
+    } else {
+      throw new Error("Unknown command")
+    }
+  } else if (interaction.isButton()) {
+    if (interaction.customId === "insert") {
+      
+    } else {
+      throw new Error("Unknown button")
+    }
   }
 });
 
