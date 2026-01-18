@@ -240,11 +240,11 @@ export const refundDiscordCmd = async (
   // ボタンの作成
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId("do_refund")
+      .setCustomId("__innerDoRefund")
       .setLabel("返金する")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId("cancel_refund")
+      .setCustomId("__innerCancelRefund")
       .setLabel("やっぱしない")
       .setStyle(ButtonStyle.Secondary)
   );
@@ -252,7 +252,7 @@ export const refundDiscordCmd = async (
   // ユーザー名取得用
   const guild = await client.guilds.fetch(guildId);
 
-  let confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
+  const confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
 
   // refundを実行
   const result = await refundCmd(
@@ -267,21 +267,21 @@ export const refundDiscordCmd = async (
       try {
         confirmation.buttonInteration = await response.awaitMessageComponent({
           filter: (i) => i.user.id === interaction.user.id,
-          time: 180_000,
+          time: 180000,
           componentType: ComponentType.Button,
         });
-        if (confirmation.buttonInteration.customId === "do_refund") {
-          return true;
-        } else {
-          await confirmation.buttonInteration.update({
-            content: "返金処理はキャンセルされました（データ変更なし）。",
-            components: [],
-          });
-          return false;
-        }
       } catch (e) {
         await interaction.editReply({
           content: "3分経過したため、返金処理は行われませんでした。",
+          components: [],
+        });
+        return false;
+      }
+      if (confirmation.buttonInteration.customId === "__innerDoRefund") {
+        return true;
+      } else {
+        await confirmation.buttonInteration.update({
+          content: "返金処理はキャンセルされました（データ変更なし）。",
           components: [],
         });
         return false;
@@ -292,12 +292,13 @@ export const refundDiscordCmd = async (
     }
   )
 
+
   // メッセージ送信
   if (result.msg === null) {
     return;
   } else {
     if (confirmation.buttonInteration !== undefined) {
-      await confirmation.buttonInteration.update(result.msg);
+      await confirmation.buttonInteration.update({ content: result.msg, components: [] });
     } else if (!interaction.replied) {
       if (result.isOk) {
         await interaction.reply({ content: result.msg });
@@ -560,3 +561,10 @@ export const insertDiscordInteractiveCmd = async (
     await interaction.followUp({ content: result.msg, ephemeral: true })
   }
 }
+
+export const testDiscordCmd = async (
+  client: Client<boolean>,
+  interaction: ChatInputCommandInteraction<CacheType>
+) => {
+
+};
