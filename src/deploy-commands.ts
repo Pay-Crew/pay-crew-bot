@@ -81,10 +81,10 @@ const commands = [
     .addStringOption((option) => option
       .setName("コマンド名")
       .setDescription("詳細を知りたいコマンド名")
-  ),
+    ),
   new SlashCommandBuilder()
-    .setName("test")
-    .setDescription("for test")
+    .setName("button")
+    .setDescription("操作のためのボタンを表示します。")
 ].map((command) => command.toJSON());
 
 // おまじない　サーバーにコマンドを登録する

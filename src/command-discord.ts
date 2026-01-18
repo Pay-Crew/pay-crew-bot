@@ -341,8 +341,12 @@ export const buttonDiscordCmd = async (
     new ButtonBuilder()
       .setCustomId("insert")
       .setLabel("支払いの追加")
+      .setStyle(ButtonStyle.Success)
   );
-  await interaction.reply({ content: "操作ボタン", components: [buttons] })
+  await interaction.reply({
+    content: "操作ボタン",
+    components: [buttons],
+  });
 }
 
 const isUserIdMention = async (guild: Guild, idMention: string) => {
@@ -353,8 +357,7 @@ const isUserIdMention = async (guild: Guild, idMention: string) => {
 
 export const insertDiscordInteractiveCmd = async (
   client: Client<boolean>,
-  // interaction: ButtonInteraction<CacheType>
-  interaction: ChatInputCommandInteraction<CacheType>
+  interaction: ButtonInteraction<CacheType>
 ) => {
   if (interaction.channel === null || !interaction.inGuild()) {
     await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
