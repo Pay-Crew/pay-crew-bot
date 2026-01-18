@@ -1,42 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, Guild, GuildMember, LabelBuilder, ModalBuilder, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
-import { CmdUser, deleteCmd, historyCmd, insertCmd, listCmd, myListCmd, refundCmd } from "./command";
-
-const transDiscordUser = (user: User | GuildMember): CmdUser => {
-  return {
-    id: user.id,
-    name: user.displayName
-  }
-};
-
-const getUserNameWithAllFetch = async (guild: Guild, id: string) => {
-  let member = guild.members.cache.get(id);
-  if (member === undefined) {
-    await guild.members.fetch();
-    member = guild.members.cache.get(id);
-  }
-  return member === undefined ? "(存在しないユーザー)" : member.displayName
-};
-
-const getUserWithEachFetch = async (guild: Guild, id: string) => {
-  let member = guild.members.cache.get(id);
-  if (member === undefined) {
-    try {
-      await guild.members.fetch(id);
-    } catch (e) {
-      console.log(`Warning: No such user does not exsit.
-\tguildId: ${guild.id}
-\tid: ${id}
-`)
-    }
-    member = guild.members.cache.get(id);
-  }
-  return member
-};
-
-const getUserNameWithEachFetch = async (guild: Guild, id: string) => {
-  const member = await getUserWithEachFetch(guild, id);
-  return member === undefined ? "(存在しないユーザー)" : member.displayName;
-};
+import { deleteCmd, historyCmd, insertCmd, listCmd, myListCmd, refundCmd } from "./command";
+import { getUserNameWithAllFetch, getUserNameWithEachFetch, getUserWithEachFetch, transDiscordUser } from "./discord-logic";
 
 export const insertDiscordCmd = async (
   client: Client<boolean>,
@@ -380,7 +344,6 @@ export const buttonDiscordCmd = async (
   );
   await interaction.reply({ content: "操作ボタン", components: [buttons] })
 }
-
 
 const isUserIdMention = async (guild: Guild, idMention: string) => {
   return idMention.charAt(0) === "<" && 
