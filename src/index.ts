@@ -44,7 +44,7 @@ async function sendMessage(channelId: string, message: string) {
 client.once(Events.ClientReady, async (c) => {
   console.log(`準備完了！ ${c.user.tag} としてログインしました。`);
   // ログイン時に1度だけメッセージを送れる
-  sendMessage(CHANNEL_ID, "yeah!");
+  // sendMessage(CHANNEL_ID, "yeah!");
   // メンバーを取得
   // if (GUILD_ID !== undefined) {
   //   const guild = await client.guilds.fetch(GUILD_ID);
