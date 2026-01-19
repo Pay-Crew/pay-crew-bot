@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
-import { deleteCmd, historyCmd, insertCmd, listCmd, myListCmd, refundCmd } from "./command";
-import { getUserNameWithAllFetch, getUserNameWithEachFetch, getUserWithEachFetch, transDiscordUser } from "./discord-logic";
+import { deleteCmd, historyCmd, insertCmd, listCmd, Refund, refundCmd } from "./command";
+import { getUserNameWithAllFetch, getUserNameWithEachFetch, getUserWithEachFetch, replyResult, transDiscordUser } from "./discord-logic";
 
 export const insertDiscordCmd = async (
   client: Client<boolean>,
@@ -31,14 +31,7 @@ export const insertDiscordCmd = async (
   );
 
   // メッセージ送信
-  if (result.msg === null) {
-    return;
-  }
-  if (result.isOk) {
-    await interaction.reply(result.msg);
-  } else {
-    await interaction.reply({ content: result.msg, ephemeral: true })
-  }
+  replyResult(interaction, result)
 };
 
 export const deleteDiscordCmd = async (
@@ -55,7 +48,7 @@ export const deleteDiscordCmd = async (
   // 引数の受け取り
   const index: number = interaction.options.getInteger("id", true);
 
-  // メンバー名取得用に用意
+  // ユーザー名取得用
   const guild = await client.guilds.fetch(guildId);
 
   // delete実行
@@ -66,14 +59,7 @@ export const deleteDiscordCmd = async (
   )
 
   // メッセージ送信
-  if (result.msg === null) {
-    return;
-  }
-  if (result.isOk) {
-    await interaction.reply(result.msg);
-  } else {
-    await interaction.reply({ content: result.msg, ephemeral: true })
-  }
+  replyResult(interaction, result);
 };
 
 export const historyDiscordCmd = async (
@@ -105,14 +91,7 @@ export const historyDiscordCmd = async (
   )
 
   // メッセージ送信
-  if (result.msg === null) {
-    return;
-  }
-  if (result.isOk) {
-    await interaction.reply(result.msg);
-  } else {
-    await interaction.reply({ content: result.msg, ephemeral: true })
-  }
+  replyResult(interaction, result);
 };
 
 export const listDiscordCmd = async (
@@ -136,14 +115,7 @@ export const listDiscordCmd = async (
   );
 
   // メッセージ送信
-  if (result.msg === null) {
-    return;
-  }
-  if (result.isOk) {
-    await interaction.reply(result.msg);
-  } else {
-    await interaction.reply({ content: result.msg, ephemeral: true })
-  }
+  replyResult(interaction, result);
 };
 
 export const myListDiscordCmd = async (
@@ -161,21 +133,14 @@ export const myListDiscordCmd = async (
   const guild = await client.guilds.fetch(guildId);
 
   // list実行
-  const result = await myListCmd(
+  const result = await listCmd(
     guildId, 
     getUserNameWithAllFetch.bind({}, guild),
     interaction.user.id,
   );
 
   // メッセージ送信
-  if (result.msg === null) {
-    return;
-  }
-  if (result.isOk) {
-    await interaction.reply(result.msg);
-  } else {
-    await interaction.reply({ content: result.msg, ephemeral: true })
-  }
+  replyResult(interaction, result);
 };
 
 export const refundDiscordCmd = async (
@@ -204,43 +169,45 @@ export const refundDiscordCmd = async (
       .setLabel("やっぱしない")
       .setStyle(ButtonStyle.Secondary)
   );
+  // ボタンを更新するための値を持つ
+  const confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
+  // ボタン操作を待つ関数
+  const waitButtonAction = async (refund: Refund) => {
+    const response = await interaction.reply({
+      content: `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
+      components: [row],
+    });
+    try {
+      confirmation.buttonInteration = await response.awaitMessageComponent({
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 180000,
+        componentType: ComponentType.Button,
+      });
+    } catch (e) {
+      await interaction.editReply({
+        content: "3分経過したため、返金処理は行われませんでした。",
+        components: [],
+      });
+      return false;
+    }
+    if (confirmation.buttonInteration.customId === "__innerDoRefund") {
+      return true;
+    } else {
+      await confirmation.buttonInteration.update({
+        content: "返金処理はキャンセルされました（データ変更なし）。",
+        components: [],
+      });
+      return false;
+    }
+  };
 
   // ユーザー名取得用
   const guild = await client.guilds.fetch(guildId);
 
-  const confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
-
   // refundを実行
   const result = await refundCmd(
     guildId,
-    async (refund) => {
-      const response = await interaction.reply({
-        content: `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
-        components: [row],
-      });
-      try {
-        confirmation.buttonInteration = await response.awaitMessageComponent({
-          filter: (i) => i.user.id === interaction.user.id,
-          time: 180000,
-          componentType: ComponentType.Button,
-        });
-      } catch (e) {
-        await interaction.editReply({
-          content: "3分経過したため、返金処理は行われませんでした。",
-          components: [],
-        });
-        return false;
-      }
-      if (confirmation.buttonInteration.customId === "__innerDoRefund") {
-        return true;
-      } else {
-        await confirmation.buttonInteration.update({
-          content: "返金処理はキャンセルされました（データ変更なし）。",
-          components: [],
-        });
-        return false;
-      }
-    },
+    waitButtonAction,
     getUserNameWithAllFetch.bind({}, guild),
     transDiscordUser(user1),
     transDiscordUser(user2),
@@ -248,65 +215,63 @@ export const refundDiscordCmd = async (
 
 
   // メッセージ送信
-  if (result.msg === null) {
-    return;
+  if (result.msg !== null && confirmation.buttonInteration !== undefined) {
+    await confirmation.buttonInteration.update({ content: result.msg, components: [] });
   } else {
-    if (confirmation.buttonInteration !== undefined) {
-      await confirmation.buttonInteration.update({ content: result.msg, components: [] });
-    } else if (!interaction.replied) {
-      if (result.isOk) {
-        await interaction.reply({ content: result.msg });
-      } else {
-        await interaction.reply({ content: result.msg, ephemeral: true });
-      }
-    }
+    replyResult(interaction, result);
   }
 };
 
-const help = (commandName: string | null) => {
+const getHelp = (commandName: string | null) => {
   const commandList: string[] = [
     "insert",
     "delete",
     "list",
     "my-list",
     "refund",
-    "help"
+    "button",
+    "help",
   ];
   const helps: Map<string, string> = new Map([
-    ["insert", `支払いを追加します。誰かが誰かの支払いを建て替えた時や、誰かが全員分のまとめ払をした時などに実行してください。
-支払いのタイトルを追加することもできます。
-例)Aさんの1000円分の支払いをBさんが建て替えた場合、
-  支払った人 -> Bさん
-  返金する人 -> Aさん
-  金額 -> 1000
-としてコマンドを実行してください。`], 
-    ["delete", `支払いを削除します。誤入力のときに使用してください。
-実行する際には、あらかじめhistoryコマンドを実行し、削除したい支払いの先頭に表示されている番号をこのコマンドに与えてください。
-支払いを精算する際には、このコマンドではなく、refundコマンドを使用してください。
-例)historyコマンドの結果が、
+    ["insert", `\t支払いを追加します。誰かが誰かの支払いを建て替えた時や、誰かが全員分のまとめ払をした時などに実行してください。
+\t支払いのタイトルを追加することもできます。
+\t例)Aさんの1000円分の支払いを、Bさんが建て替えた場合、
+\t\t支払った人 -> Bさん(メンション)
+\t\t返金する人 -> Aさん(メンション)
+\t\t金額 -> 1000
+\tとしてコマンドを実行してください。`], 
+    ["delete", `\t支払いを削除します。誤入力のときに使用してください。
+\t実行する際には、あらかじめhistoryコマンドを実行し、削除したい支払いの先頭に表示されている番号をこのコマンドに与えてください。
+\t支払いを精算する際には、このコマンドではなく、refundコマンドを使用してください。
+\t例)historyコマンドの結果が、
 \`\`\`
 [2]           (No Title):           User1 は           User2 に      100円 払ってもらった(2026-01-01 00:00:00)
 [1]           (No Title):           User2 は           User3 に     1000円 払ってもらった(2026-01-01 00:00:00)
 \`\`\`
-で、一番上の支払いを削除したい時、
-  id -> 2
-としてコマンドを実行してください。`], 
-    ["list", `支払いを合算して、一覧を表示します。
-ユーザーの間の支払を相殺して、一つにまとめて表示します。支払いが存在しないユーザー間では何も表示されません。`], 
-    ["my-list", `自分が関係する支払いの一覧を表示します。
-ユーザーの間の支払を相殺して、一つにまとめて、自分が関係あるものを表示します。`], 
-    ["refund", `指定のユーザー間の支払いを精算します。ユーザーの間で支払いを精算できるときに実行してください。
-指定したユーザーの間の支払を相殺して、金額を表示します。その金額の精算が可能なら、「返金する」ボタンを押してください。
-返金した場合、自動的に支払いが追加され、historyコマンドから確認できるようになります。`], 
-    ["help", `コマンドのヘルプを表示します。このコマンドです。
-コマンド名を入力して特定のコマンドのヘルプを見ることもできます。`], 
+\tで、一番上の支払いを削除したい時、
+\t\tid -> 2
+\tとしてコマンドを実行してください。`], 
+    ["list", `\t支払いを合算して、一覧を表示します。
+\tユーザーの間の支払を相殺して、一つにまとめて表示します。支払いが存在しないユーザー間では何も表示されません。`], 
+    ["my-list", `\t自分が関係する支払いの一覧を表示します。
+\tユーザーの間の支払を相殺して、一つにまとめて、自分が関係あるものを表示します。`], 
+    ["refund", `\t指定のユーザー間の支払いを精算します。ユーザーの間で支払いを精算できるときに実行してください。
+\t指定したユーザーの間の支払を相殺して、金額を表示します。その金額の精算が可能なら、「返金する」ボタンを押してください。
+\t返金した場合、自動的に支払いが追加され、historyコマンドから確認できるようになります。`], 
+    ["button", `\tこのBotの機能を、メッセージの送信で操作可能なボタンを表示します。
+\tコマンド操作に不慣れな方がいる場合は、ピン止めしておくと便利です。`], 
+    ["help", `\tコマンドのヘルプを表示します。このコマンドです。
+\tコマンド名を入力して特定のコマンドのヘルプを見ることもできます。`], 
   ]);
   if (commandName === null) {
-    return commandList.map((v) => `${v}コマンド\n\t${helps.get(v)!.split("\n").join("\n\t")}`).join("\n\n");
+    return commandList.map((v) => {
+      const cmdHelp = helps.get(v);
+      return `${v}コマンド\n\t${cmdHelp === undefined ? "現在、ヘルプ情報がありません。" : cmdHelp}`
+    }).join("\n\n");
   } else {
     const description = helps.get(commandName);
     if (description === undefined) {
-      return "現在、この名前のコマンドは存在しません。";
+      return "現在、ヘルプ情報がありません。";
     } else {
       return description;
     }
@@ -319,7 +284,7 @@ export const helpDiscordCmd = async (
 ) => {
   const commandName = interaction.options.getString("コマンド名");
 
-  const result = help(commandName);
+  const result = getHelp(commandName);
   await interaction.reply({ content: result, ephemeral: true })
 }
 
@@ -338,7 +303,7 @@ export const buttonDiscordCmd = async (
       .setStyle(ButtonStyle.Success),
   );
   await interaction.reply({
-    content: "操作ボタン",
+    content: "操作ボタン(**ピン止め推奨**)",
     components: [buttons],
   });
 }
@@ -347,18 +312,22 @@ const mentionToMember = async (guild: Guild, mention: string) => {
   if (mention.charAt(0) === "<" && mention.charAt(1) === "@" && mention.charAt(mention.length - 1) === ">") {
     return await getUserWithEachFetch(guild, mention.slice(2, mention.length - 1));
   } else {
-
+    return undefined;
   }
 }
 
 const interactiveArg = async (
-  interaction: ButtonInteraction<CacheType> & { channel: GuildBasedChannel },
+  interaction: (ButtonInteraction<CacheType> | ChatInputCommandInteraction<CacheType>) & { channel: GuildBasedChannel },
   msg: string
 ) => {
   const channel = interaction.channel;
 
   let argInput: string | undefined = undefined;
-  await interaction.reply({ content: msg });
+  if (interaction.replied) {
+    await interaction.followUp({ content: msg });
+  } else {
+    await interaction.reply({ content: msg });
+  }
   try {
     const payersCollect = await channel.awaitMessages({
       filter: (msg) => (msg.author.id === interaction.user.id),
@@ -375,7 +344,9 @@ const interactiveArg = async (
   return argInput;
 }
 
-const ableToInterative = (interaction: ButtonInteraction<CacheType>): interaction is ButtonInteraction<CacheType> & { channel: GuildBasedChannel } => {
+const ableToInterative = (
+  interaction: ChatInputCommandInteraction<CacheType> | ButtonInteraction<CacheType>
+): interaction is ButtonInteraction<CacheType> & { channel: GuildBasedChannel } => {
   return interaction.channel !== null && interaction.inGuild();
 }
 
@@ -388,7 +359,6 @@ export const insertDiscordInteractiveCmd = async (
     await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
     return;
   }
-  const channel = interaction.channel;
   
   // コマンドが実行されたサーバーのIDを取得
   const guildId: string | null = interaction.guildId;
@@ -401,34 +371,34 @@ export const insertDiscordInteractiveCmd = async (
   const guild = await client.guilds.fetch(guildId);
 
   // 支払った人の入力
-  const participantInput: string | undefined = await interactiveArg(interaction, "今回、**実際に支払った人**を、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください)");
-  if (participantInput === undefined) {
+  const payerInput: string | undefined = await interactiveArg(interaction, "今回、**実際に支払った人**を、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください)");
+  if (payerInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
   // サーバーのメンバーか判定
-  const participantMember = await mentionToMember(guild, participantInput);
-  if (participantMember === undefined) {
+  const payerMember = await mentionToMember(guild, payerInput);
+  if (payerMember === undefined) {
     await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
 
   // 支払ってもらった人の入力
-  const payersInput: string | undefined = await interactiveArg(interaction, "今回、**建て替えを受けた人**を、メンションで入力してください。複数人入力できます。\n(@に続けて、Discordのユーザー名を入力してください。)");
-  if (payersInput === undefined) {
+  const participantsInput: string | undefined = await interactiveArg(interaction, "今回、**建て替えを受けた人**を、メンションで入力してください。複数人入力できます。\n(@に続けて、Discordのユーザー名を入力してください。)");
+  if (participantsInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
   // 一人分に分割して、メンバーか判定
-  const payersInputSplited: string[] = payersInput?.replace(/\s+/g, "").split(">").slice(0, -1);
-  const payerMembers: GuildMember[] = [];
-  for (const payer of payersInputSplited) {
+  const participantsInputSplited: string[] = participantsInput?.replace(/\s+/g, "").split(">").slice(0, -1);
+  const participantMembers: GuildMember[] = [];
+  for (const payer of participantsInputSplited) {
     const member = await mentionToMember(guild, `${payer}>`);
     if (member === undefined) {
       await interaction.followUp({ content: "存在するユーザーをメンション形式で入力してください。\n(コマンドは中断されました。)", ephemeral: true });
       return;
     } else {
-      payerMembers.push(member);
+      participantMembers.push(member);
     }
   }
 
@@ -455,23 +425,16 @@ export const insertDiscordInteractiveCmd = async (
   // insert実行
   const result = insertCmd(
     guildId,
-    payerMembers.map((payer) => ({
-      participant: transDiscordUser(participantMember),
-      payer: transDiscordUser(payer),
+    participantMembers.map((participant) => ({
+      participant: transDiscordUser(participant),
+      payer: transDiscordUser(payerMember),
       amount: amount,
       title: memo
     }))
   );
 
   // メッセージ送信
-  if (result.msg === null) {
-    return;
-  }
-  if (result.isOk) {
-    await interaction.followUp(result.msg);
-  } else {
-    await interaction.followUp({ content: result.msg, ephemeral: true })
-  }
+  replyResult(interaction, result);
 }
 
 export const deleteDiscordInteractiveCmd = async (
@@ -483,7 +446,6 @@ export const deleteDiscordInteractiveCmd = async (
     await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
     return;
   }
-  const channel = interaction.channel;
   
   // コマンドが実行されたサーバーのIDを取得
   const guildId: string | null = interaction.guildId;
@@ -508,6 +470,9 @@ export const deleteDiscordInteractiveCmd = async (
   if (indexInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
+  } else if (indexInput === "C") {
+    await interaction.followUp({ content: "キャンセルしました。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
   }
 
   const index = parseInt(indexInput);
@@ -519,14 +484,7 @@ export const deleteDiscordInteractiveCmd = async (
   const result = await deleteCmd(guildId, getUserNameWithEachFetch.bind({}, guild), index);
 
   // メッセージ送信
-  if (result.msg === null) {
-    return;
-  }
-  if (result.isOk) {
-    await interaction.followUp(result.msg);
-  } else {
-    await interaction.followUp({ content: result.msg, ephemeral: true })
-  }
+  replyResult(interaction, result);
 }
 
 export const testDiscordCmd = async (

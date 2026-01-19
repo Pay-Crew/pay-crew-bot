@@ -1,5 +1,17 @@
-import { Guild, GuildMember, User } from "discord.js";
-import { CmdUser } from "./command";
+import { ButtonInteraction, CacheType, ChatInputCommandInteraction, Guild, GuildMember, User } from "discord.js";
+import { type CmdUser, type ResultMsg } from "./command";
+
+export const replyResult = async (interaction: ChatInputCommandInteraction<CacheType> | ButtonInteraction<CacheType>, result: ResultMsg) => {
+  if (result.msg === null) {
+    return;
+  }
+  const sendMethod = interaction.replied ? interaction.followUp : interaction.reply;
+  if (result.isOk) {
+    await sendMethod.bind(interaction, result.msg)();
+  } else {
+    await sendMethod.bind(interaction, { content: result.msg, ephemeral: true })()
+  }
+}
 
 export const transDiscordUser = (user: User | GuildMember): CmdUser => {
   return {

@@ -7,24 +7,21 @@ import {
 } from "./transaction";
 import { dateToString, equalWidthFormat } from "./format";
 
-export type ResultMsg = {
-  // 処理が成功したかどうか
-  isOk: boolean,
-  // メッセージ
-  msg: string | null
-};
+export class ResultMsg {
+  public isOk: boolean;
+  public msg: string | null;
 
-const okMsg = (msg?: string) => {
-  return {
-    isOk: true,
-    msg: msg === undefined ? null : msg
+  constructor(isOk: boolean, msg: string | null) {
+    this.isOk = isOk;
+    this.msg = msg;
   }
-}
 
-const errMsg = (msg?: string) => {
-  return {
-    isOk: false,
-    msg: msg === undefined ? null : msg
+  public static okMsg(msg?: string) {
+    return new ResultMsg(true, msg === undefined ? null : msg)
+  }
+
+  public static  errMsg(msg?: string) {
+    return new ResultMsg(false, msg === undefined ? null : msg)
   }
 }
 
@@ -54,7 +51,7 @@ export const insertCmd = (
     console.log(`Error: Failed to parse json file.
 \tgorupId: ${groupId}
 `);
-    return errMsg("データ読み込みの際にエラーが発生しました。");
+    return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
   const newDatas: {
@@ -107,7 +104,7 @@ export const insertCmd = (
     .join("\n\t")
 }
 `;
-  return okMsg(replyText);
+  return ResultMsg.okMsg(replyText);
 };
 
 // データの削除(誤入力などを削除するため)
@@ -125,7 +122,7 @@ export const deleteCmd = async (
     console.log(`Error: Failed to parse json file.
 \tgorupId: ${groupId}
 `);
-    return errMsg("データ読み込みの際にエラーが発生しました。")
+    return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。")
   }
 
   // idのバリデーション
@@ -135,7 +132,7 @@ export const deleteCmd = async (
 \tid: ${id}
 \tlen: ${transactions.length}
 `);
-    return errMsg(`ID: ${id} のデータは見つかりませんでした。（1 〜 ${transactions.length} の範囲で指定してください）`);
+    return ResultMsg.errMsg(`ID: ${id} のデータは見つかりませんでした。（1 〜 ${transactions.length} の範囲で指定してください）`);
   }
 
   // 削除実行
@@ -163,7 +160,7 @@ export const deleteCmd = async (
   }\n\tタイトル: ${
     deletedItem.memo
   }`;
-  return okMsg(replyText);
+  return ResultMsg.okMsg(replyText);
 }
 
 // データの一覧
@@ -185,7 +182,7 @@ export const historyCmd = async (
     console.log(`Error: Failed to parse json file.
 \tgorupId: ${groupId}
 `);
-    return errMsg("データ読み込みの際にエラーが発生しました。");
+    return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
   // 引数の受け取り
@@ -237,10 +234,10 @@ export const historyCmd = async (
     replyTexts.push(`(他${transactions.length - showCount}件)`);
   }
   const replyText: string = replyTexts.length === 0 ? "見つかりませんでした" : `\`\`\`\n${replyTexts.join("")}\n\`\`\``;
-  return okMsg(replyText);
+  return ResultMsg.okMsg(replyText);
 };
 
-type Refund = { from: string; to: string; amount: number };
+export type Refund = { from: string; to: string; amount: number };
 
 // // ★変更: 引数で guildId を受け取るように変更
 // const getRefundList = (guildId: string): Refund[] | null => {
@@ -369,6 +366,8 @@ export const listCmd = async (
   groupId: string,
   // ユーザー名を取得する関数
   getUserName: (id: string) => Promise<string>,
+  // 絞り込むユーザー
+  user?: string | undefined,
 ) => {
   // グループのIDから返金を算出
   const refunds: Refund[] | null = getRefundList(groupId);
@@ -376,47 +375,7 @@ export const listCmd = async (
     console.log(`Error: Failed to parse json file.
 \tgorupId: ${groupId}
 `);
-    return errMsg("データ読み込みの際にエラーが発生しました。");
-  }
-
-  console.log(`Info: Succeed in show the list.
-\tgroupId: ${groupId}
-`)
-
-  const replyTexts: string[] = [];
-  for (const { from, to, amount } of refunds) {
-    const fromMember: string = await getUserName(from);
-    const toMember: string = await getUserName(to);
-    replyTexts.push(
-      `${
-        fromMember
-      } ---- ${
-        amount
-      }円 ---> ${ 
-        toMember
-      }\n`
-    );
-  }
-  const replyText = replyTexts.length === 0 ? "現在、支払いは存在しません" : `現在残っている返金は以下のとおりです\n\`\`\`\n${replyTexts.join("")}\n\`\`\``;
-  return okMsg(replyText);
-};
-
-// 自分が関係する合算済み支払いの一覧
-export const myListCmd = async (
-  // グループのid(discordの場合はguildId)
-  groupId: string,
-  // ユーザー名を取得する関数
-  getUserName: (id: string) => Promise<string>,
-  // 自分(このコマンドを実行した人)
-  user: string,
-) => {
-  // グループのIDから返金を算出
-  const refunds: Refund[] | null = getRefundList(groupId);
-  if (refunds === null) {
-    console.log(`Error: Failed to parse json file.
-\tgorupId: ${groupId}
-`);
-    return errMsg("データ読み込みの際にエラーが発生しました。");
+    return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
   console.log(`Info: Succeed in show the my-list.
@@ -425,7 +384,7 @@ export const myListCmd = async (
 
   const replyTexts: string[] = [];
   for (const { from, to, amount } of refunds) {
-    if (from !== user && to !== user) {
+    if (user !== undefined && from !== user && to !== user) {
       continue;
     }
     const fromMember: string = await getUserName(from);
@@ -441,7 +400,7 @@ export const myListCmd = async (
     );
   }
   const replyText = replyTexts.length === 0 ? "現在、支払いは存在しません" : `現在残っている返金は以下のとおりです\n\`\`\`\n${replyTexts.join("")}\n\`\`\``;
-  return okMsg(replyText);
+  return ResultMsg.okMsg(replyText);
 };
 
 // 精算
@@ -463,7 +422,7 @@ export const refundCmd = async (
     console.log(`Error: Failed to parse json file.
 \tgorupId: ${groupId}
 `);
-    return errMsg("データ読み込みの際にエラーが発生しました。");
+    return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
   // 該当するペアのデータを参照
@@ -472,7 +431,7 @@ export const refundCmd = async (
     console.log(`Info: There is no refund.
 \tgorupId: ${groupId}
 `);
-    return errMsg("該当する返金データが見つかりませんでした。");
+    return ResultMsg.errMsg("該当する返金データが見つかりませんでした。");
   }
   const {from, to, amount}: Refund = targetRefund;
 
@@ -482,7 +441,7 @@ export const refundCmd = async (
     console.log(`Info: Canceled the refund.
 \tgorupId: ${groupId}
 `);
-    return errMsg();
+    return ResultMsg.errMsg();
   }
 
   // グループのIDからデータを取得
@@ -491,7 +450,7 @@ export const refundCmd = async (
     console.log(`Error: Failed to parse json file.
 \tgorupId: ${groupId}
 `);
-    return errMsg("データ読み込みの際にエラーが発生しました。");
+    return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
   // データ追加
@@ -511,7 +470,7 @@ export const refundCmd = async (
 \tgorupId: ${groupId}
 `);
 
-  return okMsg(`返金を記録しました：${
+  return ResultMsg.okMsg(`返金を記録しました：${
     await getUserName(from)
   } ---> ${
     await getUserName(to)
