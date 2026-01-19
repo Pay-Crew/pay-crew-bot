@@ -55,13 +55,11 @@ const commands = [
   // 返金表示
   new SlashCommandBuilder()
     .setName("list")
-    .setDescription("支払いを合算したものを表示します")
-  ,
+    .setDescription("支払いを合算したものを表示します"),
   // 自分に関係ある返金を表示
   new SlashCommandBuilder()
     .setName("my-list")
-    .setDescription("支払いを合算したもののうち、あなたに関係あることを表示します")
-  ,
+    .setDescription("支払いを合算したもののうち、あなたに関係あるものを表示します"),
   // 返金
   new SlashCommandBuilder()
     .setName("refund")
@@ -83,7 +81,10 @@ const commands = [
     .addStringOption((option) => option
       .setName("コマンド名")
       .setDescription("詳細を知りたいコマンド名")
-  )
+    ),
+  new SlashCommandBuilder()
+    .setName("button")
+    .setDescription("操作のためのボタンを表示します。")
 ].map((command) => command.toJSON());
 
 // おまじない　サーバーにコマンドを登録する

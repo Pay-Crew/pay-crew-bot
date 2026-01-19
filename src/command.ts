@@ -37,14 +37,16 @@ export type CmdUser = {
 export const insertCmd = (
   // グループのid(discordの場合はguildId)
   groupId: string,
-  // 建て替えてもらった人
-  participant: CmdUser,
-  // 実際に払った人
-  payer: CmdUser,
-  // 金額
-  amount: number,
-  // タイトル
-  title: string,
+  datas: {
+    // 建て替えてもらった人
+    participant: CmdUser,
+    // 実際に払った人
+    payer: CmdUser,
+    // 金額
+    amount: number,
+    // タイトル
+    title: string,
+  }[]
 ): ResultMsg => {
   // グループのIDからデータを取得
   const transactions: Transaction[] | null = readTransactions(groupId);
@@ -55,38 +57,56 @@ export const insertCmd = (
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
-  // 新データ作成・追加
-  const newData: Transaction = {
-    participant: participant.id,
-    payer: payer.id,
-    amount,
-    memo: title,
-    date: new Date()
-  };
-  transactions.push(newData);
+  const newDatas: {
+    participant: string,
+    payer: string,
+    amount: number,
+    memo: string,
+    date: Date
+  }[] = [];
+
+  for (const data of datas) {
+    // 新データ作成・追加
+    const newData: Transaction = {
+      participant: data.participant.id,
+      payer: data.payer.id,
+      amount: data.amount,
+      memo: data.title,
+      date: new Date()
+    };
+    newDatas.push(newData);
+    transactions.push(newData);
+  }
 
   // データを書き込み
   writeTransactions(groupId, transactions);
-  
+
   console.log(`Info: Succeed in inserting the data below.
 \tgroupId: ${groupId}
-\tparticipant: ${newData.participant}
+\t${
+  newDatas
+    .map((newData) => (`participant: ${newData.participant}
 \tpayer: ${newData.payer}
 \tamount: ${newData.amount}
 \tmemo: ${newData.memo}
 \tdate: ${newData.date}
+`))
+    .join("\n\t")
+}
 `);
 
   // メッセージ作成
-  const replyText: string = `以下の支払いを追加しました。\n\t返金する人: ${
-    participant.name
-  }\n\t払った人: ${
-    payer.name
-  }\n\t金額: ${
-    amount
-  }\n\tタイトル: ${
-    title
-  }`;
+  const replyText: string = `以下の支払いを追加しました。
+\t${
+  datas
+    .map((data) => (`返金する人: ${data.participant.name}
+\t払った人: ${data.payer.name}
+\t金額: ${data.amount}
+\tタイトル: ${data.title}
+`))
+    .join("\n\t")
+}
+`;
   return okMsg(replyText);
 };
 
@@ -94,10 +114,10 @@ export const insertCmd = (
 export const deleteCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string,
+  // ユーザー名を取得する関数
+  getUserName: (id: string) => Promise<string>,
   // 削除したい支払いのid(1-indexで算出したもの)
   id: number,
-  // ユーザー名を取得する関数
-  getUserName: (id: string) => Promise<string>
 ): Promise<ResultMsg> => {
   // グループのIDからデータ取得
   const transactions: Transaction[] | null = readTransactions(groupId);
@@ -150,26 +170,26 @@ export const deleteCmd = async (
 export const historyCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string,
-  // 表示件数
-  count: number | null,
-  // 検索したいユーザー1
-  user1: CmdUser | null,
-  // 検索したいユーザー2
-  user2: CmdUser | null,
   // ユーザー名を取得する関数
-  getUserName: (id: string) => Promise<string>
+  getUserName: (id: string) => Promise<string>,
+  // 表示件数
+  count?: number | undefined,
+  // 検索したいユーザー1
+  user1?: CmdUser | undefined,
+  // 検索したいユーザー2
+  user2?: CmdUser | undefined,
 ): Promise<ResultMsg> => {
   // グループのIDからデータを取得
   const transactions: Transaction[] | null = readTransactions(groupId);
   if (transactions === null) {
     console.log(`Error: Failed to parse json file.
-gorupId: ${groupId}
+\tgorupId: ${groupId}
 `);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
   // 引数の受け取り
-  const countNonNullable: number = count === null ? 10 : count;
+  const countNonNullable: number = count === undefined ? 10 : count;
 
   // Userで検索
   type TransactionWithIndex = {i: number, transaction: Transaction};
@@ -177,8 +197,8 @@ gorupId: ${groupId}
     // 1つずらしたindexを保持
     .map((transaction, i) => ({ i: i + 1, transaction }))
     .filter(({i, transaction}) => (
-      (user1 === null || transaction.payer === user1.id || transaction.participant === user1.id) &&
-      (user2 === null || transaction.payer === user2.id || transaction.participant === user2.id)
+      (user1 === undefined || transaction.payer === user1.id || transaction.participant === user1.id) &&
+      (user2 === undefined || transaction.payer === user2.id || transaction.participant === user2.id)
     ));
 
   // 表示個数
@@ -187,7 +207,7 @@ gorupId: ${groupId}
     : transactions.length;
   
   console.log(`Info: Succeed in show the historys.
-groupId: ${groupId}
+\tgroupId: ${groupId}
 `)
 
   // メッセージ作成
@@ -385,16 +405,16 @@ export const listCmd = async (
 export const myListCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string,
-  // 自分(このコマンドを実行した人)
-  user: string,
   // ユーザー名を取得する関数
   getUserName: (id: string) => Promise<string>,
+  // 自分(このコマンドを実行した人)
+  user: string,
 ) => {
   // グループのIDから返金を算出
   const refunds: Refund[] | null = getRefundList(groupId);
   if (refunds === null) {
     console.log(`Error: Failed to parse json file.
-gorupId: ${groupId}
+\tgorupId: ${groupId}
 `);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
@@ -428,20 +448,20 @@ gorupId: ${groupId}
 export const refundCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string, 
+  // 精算するかどうかの確認をする関数
+  ask: (refund: Refund) => Promise<boolean>,
+  // ユーザー名を取得する関数
+  getUserName: (id: string) => Promise<string>,
   // 精算するユーザー1
   user1: CmdUser,
   // 精算するユーザー2
   user2: CmdUser,
-  // 生産するかどうかの確認をする関数
-  ask: (refund: Refund) => Promise<boolean>,
-  // ユーザー名を取得する関数
-  getUserName: (id: string) => Promise<string>,
 ) => {
   // グループのIDから返金を算出
   const refunds: Refund[] | null = getRefundList(groupId);
   if (refunds == null) {
     console.log(`Error: Failed to parse json file.
-gorupId: ${groupId}
+\tgorupId: ${groupId}
 `);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
@@ -450,7 +470,7 @@ gorupId: ${groupId}
   const targetRefund: Refund | undefined = refunds.find((r) => (r.from === user1.id && r.to === user2.id) || (r.from === user2.id && r.to === user1.id));
   if (targetRefund === undefined || targetRefund.amount === 0) {
     console.log(`Info: There is no refund.
-gorupId: ${groupId}
+\tgorupId: ${groupId}
 `);
     return errMsg("該当する返金データが見つかりませんでした。");
   }
@@ -460,7 +480,7 @@ gorupId: ${groupId}
   const askResult = await ask(targetRefund);
   if (!askResult) {
     console.log(`Info: Canceled the refund.
-gorupId: ${groupId}
+\tgorupId: ${groupId}
 `);
     return errMsg();
   }
@@ -469,7 +489,7 @@ gorupId: ${groupId}
   const transactions = readTransactions(groupId);
   if (transactions === null) {
     console.log(`Error: Failed to parse json file.
-gorupId: ${groupId}
+\tgorupId: ${groupId}
 `);
     return errMsg("データ読み込みの際にエラーが発生しました。");
   }
@@ -488,7 +508,7 @@ gorupId: ${groupId}
   writeTransactions(groupId, transactions);
 
   console.log(`Info: Succeed in refunding.
-gorupId: ${groupId}
+\tgorupId: ${groupId}
 `);
 
   return okMsg(`返金を記録しました：${

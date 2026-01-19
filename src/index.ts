@@ -1,6 +1,5 @@
 import { Client, GatewayIntentBits, Events, ChannelType, Channel } from "discord.js";
-import { refundCmd } from "./command";
-import { insertDiscordCmd, deleteDiscordCmd, historyDiscordCmd, listDiscordCmd, myListDiscordCmd, refundDiscordCmd, helpDiscordCmd } from "./command-discord";
+import { insertDiscordCmd, deleteDiscordCmd, historyDiscordCmd, listDiscordCmd, myListDiscordCmd, refundDiscordCmd, helpDiscordCmd, insertDiscordInteractiveCmd, testDiscordCmd, buttonDiscordCmd, deleteDiscordInteractiveCmd } from "./command-discord";
 
 //////
 
@@ -44,7 +43,7 @@ async function sendMessage(channelId: string, message: string) {
 client.once(Events.ClientReady, async (c) => {
   console.log(`準備完了！ ${c.user.tag} としてログインしました。`);
   // ログイン時に1度だけメッセージを送れる
-  sendMessage(CHANNEL_ID, "yeah!");
+  // sendMessage(CHANNEL_ID, "yeah!");
   // メンバーを取得
   // if (GUILD_ID !== undefined) {
   //   const guild = await client.guilds.fetch(GUILD_ID);
@@ -62,26 +61,39 @@ client.once(Events.ClientReady, async (c) => {
 
 // コマンドの処理
 client.on(Events.InteractionCreate, async (interaction) => {
-  // チャットコマンド以外（ボタンなど）は無視
-  if (!interaction.isChatInputCommand()) return;
-
-  // コマンド名で分岐
-  if (interaction.commandName === "insert") {
-    await insertDiscordCmd(client, interaction);
-  } else if (interaction.commandName === "delete") {
-    await deleteDiscordCmd(client, interaction);
-  } else if (interaction.commandName === "history") {
-    await historyDiscordCmd(client, interaction);
-  } else if (interaction.commandName === "list") {
-    await listDiscordCmd(client, interaction)
-  } else if (interaction.commandName === "my-list") {
-    await myListDiscordCmd(client, interaction)
-  } else if (interaction.commandName === "refund") {
-    await refundDiscordCmd(client, interaction)
-  } else if (interaction.commandName === "help") {
-    await helpDiscordCmd(client, interaction)
-  } else {
-    throw new Error("Unknown command")
+  if (interaction.isChatInputCommand()) {
+    // コマンド名で分岐
+    if (interaction.commandName === "insert") {
+      await insertDiscordCmd(client, interaction);
+    } else if (interaction.commandName === "delete") {
+      await deleteDiscordCmd(client, interaction);
+    } else if (interaction.commandName === "history") {
+      await historyDiscordCmd(client, interaction);
+    } else if (interaction.commandName === "list") {
+      await listDiscordCmd(client, interaction)
+    } else if (interaction.commandName === "my-list") {
+      await myListDiscordCmd(client, interaction)
+    } else if (interaction.commandName === "refund") {
+      await refundDiscordCmd(client, interaction)
+    } else if (interaction.commandName === "help") {
+      await helpDiscordCmd(client, interaction)
+    } else if (interaction.commandName === "button") {
+      await buttonDiscordCmd(client, interaction)
+    } else if (interaction.commandName === "test") {
+      await testDiscordCmd(client, interaction)
+    } else {
+      throw new Error("Unknown command")
+    }
+  } else if (interaction.isButton()) {
+    if (interaction.customId.slice(0, 7) == "__inner") {
+      return;
+    } else if (interaction.customId === "insert") {
+      await insertDiscordInteractiveCmd(client, interaction);
+    } else if (interaction.customId === "delete") {
+      await deleteDiscordInteractiveCmd(client, interaction);
+    } else {
+      throw new Error("Unknown button")
+    }
   }
 });
 
