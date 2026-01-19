@@ -74,6 +74,10 @@ const commands = [
       .setDescription('これから返金する人もしくはこれから返金してもらう人')
       .setRequired(true)
     ),
+  // 操作ボタン
+  new SlashCommandBuilder()
+    .setName("button")
+    .setDescription("操作のためのボタンを表示します。"),
   // ヘルプ
   new SlashCommandBuilder()
     .setName("help")
@@ -82,9 +86,6 @@ const commands = [
       .setName("コマンド名")
       .setDescription("詳細を知りたいコマンド名")
     ),
-  new SlashCommandBuilder()
-    .setName("button")
-    .setDescription("操作のためのボタンを表示します。")
 ].map((command) => command.toJSON());
 
 // おまじない　サーバーにコマンドを登録する

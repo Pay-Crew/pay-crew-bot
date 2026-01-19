@@ -20,13 +20,18 @@ export const transDiscordUser = (user: User | GuildMember): CmdUser => {
   }
 };
 
-export const getUserNameWithAllFetch = async (guild: Guild, id: string) => {
+export const getUserWithAllFetch = async (guild: Guild, id: string) => {
   let member = guild.members.cache.get(id);
   if (member === undefined) {
     await guild.members.fetch();
     member = guild.members.cache.get(id);
   }
-  return member === undefined ? "(存在しないユーザー)" : member.displayName
+  return member
+};
+
+export const getUserNameWithAllFetch = async (guild: Guild, id: string) => {
+  const member = await getUserWithAllFetch(guild, id);
+  return member === undefined ? "(存在しないユーザー)" : member.displayName;
 };
 
 export const getUserWithEachFetch = async (guild: Guild, id: string) => {

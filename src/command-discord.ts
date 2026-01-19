@@ -286,27 +286,51 @@ export const helpDiscordCmd = async (
 
   const result = getHelp(commandName);
   await interaction.reply({ content: result, ephemeral: true })
-}
+};
 
 export const buttonDiscordCmd = async (
   client: Client<boolean>,
   interaction: ChatInputCommandInteraction<CacheType>
 ) => {
-  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId("insert")
-      .setLabel("支払いの追加")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId("delete")
-      .setLabel("支払いの削除")
-      .setStyle(ButtonStyle.Success),
-  );
+  const buttons = [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("insert")
+        .setLabel("支払いの追加")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("delete")
+        .setLabel("支払いの削除")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("history")
+        .setLabel("支払いの一覧表示")
+        .setStyle(ButtonStyle.Success),
+    ),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("list")
+        .setLabel("合算した支払いの一覧表示")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("my-list")
+        .setLabel("合算した自分の支払いの一覧表示")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("refund")
+        .setLabel("精算")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("help")
+        .setLabel("ヘルプ")
+        .setStyle(ButtonStyle.Success),
+    ),
+  ];
   await interaction.reply({
     content: "操作ボタン(**ピン止め推奨**)",
-    components: [buttons],
+    components: buttons,
   });
-}
+};
 
 const mentionToMember = async (guild: Guild, mention: string) => {
   if (mention.charAt(0) === "<" && mention.charAt(1) === "@" && mention.charAt(mention.length - 1) === ">") {
@@ -314,7 +338,7 @@ const mentionToMember = async (guild: Guild, mention: string) => {
   } else {
     return undefined;
   }
-}
+};
 
 const interactiveArg = async (
   interaction: (ButtonInteraction<CacheType> | ChatInputCommandInteraction<CacheType>) & { channel: GuildBasedChannel },
@@ -342,13 +366,13 @@ const interactiveArg = async (
   }
 
   return argInput;
-}
+};
 
 const ableToInterative = (
   interaction: ChatInputCommandInteraction<CacheType> | ButtonInteraction<CacheType>
 ): interaction is ButtonInteraction<CacheType> & { channel: GuildBasedChannel } => {
   return interaction.channel !== null && interaction.inGuild();
-}
+};
 
 export const insertDiscordInteractiveCmd = async (
   client: Client<boolean>,
@@ -435,7 +459,7 @@ export const insertDiscordInteractiveCmd = async (
 
   // メッセージ送信
   replyResult(interaction, result);
-}
+};
 
 export const deleteDiscordInteractiveCmd = async (
   client: Client<boolean>,
@@ -485,7 +509,189 @@ export const deleteDiscordInteractiveCmd = async (
 
   // メッセージ送信
   replyResult(interaction, result);
-}
+};
+
+export const historyDiscordInteractiveCmd = async (
+  client: Client<boolean>,
+  interaction: ButtonInteraction<CacheType>
+) => {
+  // コマンドが実行されたサーバーのIDを取得
+  const guildId: string | null = interaction.guildId;
+  if (guildId === null) {
+    await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
+    return;
+  }
+
+  // ユーザー名取得用
+  const guild = await client.guilds.fetch(guildId);
+
+  // history実行
+  const result = await historyCmd(
+    guildId, 
+    getUserNameWithAllFetch.bind({}, guild)
+  )
+
+  // メッセージ送信
+  replyResult(interaction, result);
+};
+
+export const listDiscordInteractiveCmd = async (
+  client: Client<boolean>,
+  interaction: ButtonInteraction<CacheType>
+) => {
+  // コマンドが実行されたサーバーのIDを取得
+  const guildId: string | null = interaction.guildId;
+  if (guildId === null) {
+    await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
+    return;
+  }
+
+  // ユーザー名取得用
+  const guild = await client.guilds.fetch(guildId);
+
+  // list実行
+  const result = await listCmd(
+    guildId, 
+    getUserNameWithAllFetch.bind({}, guild),
+  );
+
+  // メッセージ送信
+  replyResult(interaction, result);
+};
+
+export const myListDiscordInteractiveCmd = async (
+  client: Client<boolean>,
+  interaction: ButtonInteraction<CacheType>
+) => {
+  // コマンドが実行されたサーバーのIDを取得
+  const guildId: string | null = interaction.guildId;
+  if (guildId === null) {
+    await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
+    return;
+  }
+
+  // ユーザー名取得用
+  const guild = await client.guilds.fetch(guildId);
+
+  // list実行
+  const result = await listCmd(
+    guildId, 
+    getUserNameWithAllFetch.bind({}, guild),
+    interaction.user.id,
+  );
+
+  // メッセージ送信
+  replyResult(interaction, result);
+};
+
+export const refundDiscordInteractiveCmd = async (
+  client: Client<boolean>,
+  interaction: ButtonInteraction<CacheType>
+) => {
+  // intaractionがユーザーの入力待ちができるか判定
+  if (!ableToInterative(interaction)) {
+    await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
+    return;
+  }
+
+  // コマンドが実行されたサーバーのIDを取得
+  const guildId: string | null = interaction.guildId;
+  if (guildId === null) {
+    await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
+    return;
+  }
+
+  // ユーザー名取得用
+  const guild = await client.guilds.fetch(guildId);
+
+  // 引数を取得
+  const usersInput: string | undefined = await interactiveArg(interaction, "精算に関わる人を**2人**、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください")
+  // const user1: User = interaction.options.getUser("返金するorされる人1", true);
+  // const user2: User = interaction.options.getUser("返金するorされる人2", true);
+  if (usersInput === undefined) {
+    await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
+  }
+  const usersInputSplited = usersInput.split(">").slice(0, -1);
+  if (usersInputSplited.length !== 2) {
+    await interaction.followUp({ content: "ユーザーを2人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
+  }
+  const user1: GuildMember | undefined = await getUserWithEachFetch(guild, usersInputSplited[0]);
+  const user2: GuildMember | undefined = await getUserWithEachFetch(guild, usersInputSplited[1]);
+  if (user1 === undefined || user2 === undefined) {
+    await interaction.followUp({ content: "ユーザーを2人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
+  }
+
+  // ボタンの作成
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("__innerDoRefund")
+      .setLabel("返金する")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("__innerCancelRefund")
+      .setLabel("やっぱしない")
+      .setStyle(ButtonStyle.Secondary)
+  );
+  // ボタンを更新するための値を持つ
+  const confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
+  // ボタン操作を待つ関数
+  const waitButtonAction = async (refund: Refund) => {
+    const response = await interaction.reply({
+      content: `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
+      components: [row],
+    });
+    try {
+      confirmation.buttonInteration = await response.awaitMessageComponent({
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 180000,
+        componentType: ComponentType.Button,
+      });
+    } catch (e) {
+      await interaction.editReply({
+        content: "3分経過したため、返金処理は行われませんでした。",
+        components: [],
+      });
+      return false;
+    }
+    if (confirmation.buttonInteration.customId === "__innerDoRefund") {
+      return true;
+    } else {
+      await confirmation.buttonInteration.update({
+        content: "返金処理はキャンセルされました（データ変更なし）。",
+        components: [],
+      });
+      return false;
+    }
+  };
+
+  // refundを実行
+  const result = await refundCmd(
+    guildId,
+    waitButtonAction,
+    getUserNameWithAllFetch.bind({}, guild),
+    transDiscordUser(user1),
+    transDiscordUser(user2),
+  )
+
+
+  // メッセージ送信
+  if (result.msg !== null && confirmation.buttonInteration !== undefined) {
+    await confirmation.buttonInteration.update({ content: result.msg, components: [] });
+  } else {
+    replyResult(interaction, result);
+  }
+};
+
+export const helpDiscordInteractiveCmd = async (
+  client: Client<boolean>,
+  interaction: ButtonInteraction<CacheType>
+) => {
+  const result = getHelp(null);
+  await interaction.reply({ content: result, ephemeral: true })
+};
 
 export const testDiscordCmd = async (
   client: Client<boolean>,

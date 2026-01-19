@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits, Events, ChannelType, Channel } from "discord.js";
-import { insertDiscordCmd, deleteDiscordCmd, historyDiscordCmd, listDiscordCmd, myListDiscordCmd, refundDiscordCmd, helpDiscordCmd, insertDiscordInteractiveCmd, testDiscordCmd, buttonDiscordCmd, deleteDiscordInteractiveCmd } from "./command-discord";
+import { insertDiscordCmd, deleteDiscordCmd, historyDiscordCmd, listDiscordCmd, myListDiscordCmd, refundDiscordCmd, helpDiscordCmd, insertDiscordInteractiveCmd, testDiscordCmd, buttonDiscordCmd, deleteDiscordInteractiveCmd, historyDiscordInteractiveCmd, listDiscordInteractiveCmd, myListDiscordInteractiveCmd, refundDiscordInteractiveCmd, helpDiscordInteractiveCmd } from "./command-discord";
 
 //////
 
@@ -91,6 +91,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await insertDiscordInteractiveCmd(client, interaction);
     } else if (interaction.customId === "delete") {
       await deleteDiscordInteractiveCmd(client, interaction);
+    } else if (interaction.customId === "history") {
+      await historyDiscordInteractiveCmd(client, interaction);
+    } else if (interaction.customId === "list") {
+      await listDiscordInteractiveCmd(client, interaction);
+    } else if (interaction.customId === "my-list") {
+      await myListDiscordInteractiveCmd(client, interaction);
+    } else if (interaction.customId === "refund") {
+      await refundDiscordInteractiveCmd(client, interaction);
+    } else if (interaction.customId === "help") {
+      await helpDiscordInteractiveCmd(client, interaction);
     } else {
       throw new Error("Unknown button")
     }
