@@ -114,10 +114,10 @@ export const insertCmd = (
 export const deleteCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string,
+  // ユーザー名を取得する関数
+  getUserName: (id: string) => Promise<string>,
   // 削除したい支払いのid(1-indexで算出したもの)
   id: number,
-  // ユーザー名を取得する関数
-  getUserName: (id: string) => Promise<string>
 ): Promise<ResultMsg> => {
   // グループのIDからデータ取得
   const transactions: Transaction[] | null = readTransactions(groupId);
@@ -170,14 +170,14 @@ export const deleteCmd = async (
 export const historyCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string,
-  // 表示件数
-  count: number | null,
-  // 検索したいユーザー1
-  user1: CmdUser | null,
-  // 検索したいユーザー2
-  user2: CmdUser | null,
   // ユーザー名を取得する関数
-  getUserName: (id: string) => Promise<string>
+  getUserName: (id: string) => Promise<string>,
+  // 表示件数
+  count?: number | undefined,
+  // 検索したいユーザー1
+  user1?: CmdUser | undefined,
+  // 検索したいユーザー2
+  user2?: CmdUser | undefined,
 ): Promise<ResultMsg> => {
   // グループのIDからデータを取得
   const transactions: Transaction[] | null = readTransactions(groupId);
@@ -189,7 +189,7 @@ export const historyCmd = async (
   }
 
   // 引数の受け取り
-  const countNonNullable: number = count === null ? 10 : count;
+  const countNonNullable: number = count === undefined ? 10 : count;
 
   // Userで検索
   type TransactionWithIndex = {i: number, transaction: Transaction};
@@ -197,8 +197,8 @@ export const historyCmd = async (
     // 1つずらしたindexを保持
     .map((transaction, i) => ({ i: i + 1, transaction }))
     .filter(({i, transaction}) => (
-      (user1 === null || transaction.payer === user1.id || transaction.participant === user1.id) &&
-      (user2 === null || transaction.payer === user2.id || transaction.participant === user2.id)
+      (user1 === undefined || transaction.payer === user1.id || transaction.participant === user1.id) &&
+      (user2 === undefined || transaction.payer === user2.id || transaction.participant === user2.id)
     ));
 
   // 表示個数
@@ -405,10 +405,10 @@ export const listCmd = async (
 export const myListCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string,
-  // 自分(このコマンドを実行した人)
-  user: string,
   // ユーザー名を取得する関数
   getUserName: (id: string) => Promise<string>,
+  // 自分(このコマンドを実行した人)
+  user: string,
 ) => {
   // グループのIDから返金を算出
   const refunds: Refund[] | null = getRefundList(groupId);
@@ -448,14 +448,14 @@ export const myListCmd = async (
 export const refundCmd = async (
   // グループのid(discordの場合はguildId)
   groupId: string, 
+  // 精算するかどうかの確認をする関数
+  ask: (refund: Refund) => Promise<boolean>,
+  // ユーザー名を取得する関数
+  getUserName: (id: string) => Promise<string>,
   // 精算するユーザー1
   user1: CmdUser,
   // 精算するユーザー2
   user2: CmdUser,
-  // 生産するかどうかの確認をする関数
-  ask: (refund: Refund) => Promise<boolean>,
-  // ユーザー名を取得する関数
-  getUserName: (id: string) => Promise<string>,
 ) => {
   // グループのIDから返金を算出
   const refunds: Refund[] | null = getRefundList(groupId);

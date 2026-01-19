@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, Guild, GuildMember, LabelBuilder, ModalBuilder, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
 import { deleteCmd, historyCmd, insertCmd, listCmd, myListCmd, refundCmd } from "./command";
 import { getUserNameWithAllFetch, getUserNameWithEachFetch, getUserWithEachFetch, transDiscordUser } from "./discord-logic";
 
@@ -61,10 +61,8 @@ export const deleteDiscordCmd = async (
   // delete実行
   const result = await deleteCmd(
     guildId, 
+    getUserNameWithEachFetch.bind({}, guild),
     index, 
-    async (id) => {
-      return await getUserNameWithEachFetch(guild, id);
-    }
   )
 
   // メッセージ送信
@@ -100,12 +98,10 @@ export const historyDiscordCmd = async (
   // history実行
   const result = await historyCmd(
     guildId, 
-    count, 
-    user1 === null ? null : transDiscordUser(user1), 
-    user2 === null ? null : transDiscordUser(user2),
-    async (id) => {
-      return await getUserNameWithAllFetch(guild, id);
-    }
+    getUserNameWithAllFetch.bind({}, guild),
+    count === null ? undefined : count, 
+    user1 === null ? undefined : transDiscordUser(user1), 
+    user2 === null ? undefined : transDiscordUser(user2),
   )
 
   // メッセージ送信
@@ -136,9 +132,7 @@ export const listDiscordCmd = async (
   // list実行
   const result = await listCmd(
     guildId, 
-    async (id) => {
-      return await getUserNameWithAllFetch(guild, id);
-    }
+    getUserNameWithAllFetch.bind({}, guild),
   );
 
   // メッセージ送信
@@ -169,10 +163,8 @@ export const myListDiscordCmd = async (
   // list実行
   const result = await myListCmd(
     guildId, 
+    getUserNameWithAllFetch.bind({}, guild),
     interaction.user.id,
-    async (id) => {
-      return await getUserNameWithAllFetch(guild, id);
-    }
   );
 
   // メッセージ送信
@@ -221,8 +213,6 @@ export const refundDiscordCmd = async (
   // refundを実行
   const result = await refundCmd(
     guildId,
-    transDiscordUser(user1),
-    transDiscordUser(user2),
     async (refund) => {
       const response = await interaction.reply({
         content: `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
@@ -251,9 +241,9 @@ export const refundDiscordCmd = async (
         return false;
       }
     },
-    async (id) => {
-      return await getUserNameWithEachFetch(guild, id);
-    }
+    getUserNameWithAllFetch.bind({}, guild),
+    transDiscordUser(user1),
+    transDiscordUser(user2),
   )
 
 
@@ -341,7 +331,11 @@ export const buttonDiscordCmd = async (
     new ButtonBuilder()
       .setCustomId("insert")
       .setLabel("支払いの追加")
-      .setStyle(ButtonStyle.Success)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("delete")
+      .setLabel("支払いの削除")
+      .setStyle(ButtonStyle.Success),
   );
   await interaction.reply({
     content: "操作ボタン",
@@ -349,20 +343,52 @@ export const buttonDiscordCmd = async (
   });
 }
 
-const isUserIdMention = async (guild: Guild, idMention: string) => {
-  return idMention.charAt(0) === "<" && 
-    idMention.charAt(1) === "@" &&
-    idMention.charAt(idMention.length - 1) === ">";
+const mentionToMember = async (guild: Guild, mention: string) => {
+  if (mention.charAt(0) === "<" && mention.charAt(1) === "@" && mention.charAt(mention.length - 1) === ">") {
+    return await getUserWithEachFetch(guild, mention.slice(2, mention.length - 1));
+  } else {
+
+  }
+}
+
+const interactiveArg = async (
+  interaction: ButtonInteraction<CacheType> & { channel: GuildBasedChannel },
+  msg: string
+) => {
+  const channel = interaction.channel;
+
+  let argInput: string | undefined = undefined;
+  await interaction.reply({ content: msg });
+  try {
+    const payersCollect = await channel.awaitMessages({
+      filter: (msg) => (msg.author.id === interaction.user.id),
+      max: 1,
+      time: 30000,
+      errors: ['time'],
+    });
+    argInput = payersCollect.first()?.content;
+  } catch (e) {
+    await interaction.followUp({ content: "時間切れです。\n(コマンドは中断されました。)", ephemeral: true });
+    return undefined;
+  }
+
+  return argInput;
+}
+
+const ableToInterative = (interaction: ButtonInteraction<CacheType>): interaction is ButtonInteraction<CacheType> & { channel: GuildBasedChannel } => {
+  return interaction.channel !== null && interaction.inGuild();
 }
 
 export const insertDiscordInteractiveCmd = async (
   client: Client<boolean>,
   interaction: ButtonInteraction<CacheType>
 ) => {
-  if (interaction.channel === null || !interaction.inGuild()) {
+  // intaractionがユーザーの入力待ちができるか判定
+  if (!ableToInterative(interaction)) {
     await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
     return;
   }
+  const channel = interaction.channel;
   
   // コマンドが実行されたサーバーのIDを取得
   const guildId: string | null = interaction.guildId;
@@ -374,148 +400,123 @@ export const insertDiscordInteractiveCmd = async (
   // ユーザー名取得用
   const guild = await client.guilds.fetch(guildId);
 
-  const channel = interaction.channel;
-
-  const argsRaw: {
-    participant: string | undefined,
-    payers: string | undefined,
-    amount: string | undefined,
-    memo: string | undefined,
-  } = {
-    participant: undefined,
-    payers: undefined,
-    amount: undefined,
-    memo: undefined
-  };
-
-  const args: {
-    participant: GuildMember | undefined,
-    payers: GuildMember[] | undefined,
-    amount: number | undefined,
-    memo: string | undefined,
-  } = {
-    participant: undefined,
-    payers: undefined,
-    amount: undefined,
-    memo: undefined
-  };
-
-  await interaction.reply({ content: "今回、**建て替えを受けた人**を、メンションで入力してください。複数人入力できます。\n(@に続けて、Discordのユーザー名を入力してください。)" });
-  try {
-    const payersCollect = await channel.awaitMessages({
-      filter: (msg) => (msg.author.id === interaction.user.id),
-      max: 1,
-      time: 30000,
-      errors: ['time'],
-    });
-    argsRaw.payers = payersCollect.first()?.content;
-  } catch (e) {
-    await interaction.followUp({ content: "時間切れです。\n(コマンドは中断されました。)", ephemeral: true });
+  // 支払った人の入力
+  const participantInput: string | undefined = await interactiveArg(interaction, "今回、**実際に支払った人**を、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください)");
+  if (participantInput === undefined) {
+    await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
+  }
+  // サーバーのメンバーか判定
+  const participantMember = await mentionToMember(guild, participantInput);
+  if (participantMember === undefined) {
+    await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
 
-  const payers = argsRaw.payers?.replace(/\s+/g, "").split(">").slice(0, -1);
-  if (payers === undefined || !payers.every(async (payer) => (await isUserIdMention(guild, `${payer}>`)))) {
-    await interaction.followUp({ content: "存在するユーザーをメンション形式で入力してください。\n(コマンドは中断されました。)", ephemeral: true });
+  // 支払ってもらった人の入力
+  const payersInput: string | undefined = await interactiveArg(interaction, "今回、**建て替えを受けた人**を、メンションで入力してください。複数人入力できます。\n(@に続けて、Discordのユーザー名を入力してください。)");
+  if (payersInput === undefined) {
+    await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
+  // 一人分に分割して、メンバーか判定
+  const payersInputSplited: string[] = payersInput?.replace(/\s+/g, "").split(">").slice(0, -1);
   const payerMembers: GuildMember[] = [];
-  for (const v of payers) {
-    const member = await getUserWithEachFetch(guild, v.slice(2, v.length));
+  for (const payer of payersInputSplited) {
+    const member = await mentionToMember(guild, `${payer}>`);
     if (member === undefined) {
       await interaction.followUp({ content: "存在するユーザーをメンション形式で入力してください。\n(コマンドは中断されました。)", ephemeral: true });
       return;
+    } else {
+      payerMembers.push(member);
     }
-    payerMembers.push(member);
-  }
-  args.payers = payerMembers;
-
-  await interaction.followUp({ content: "今回、**実際に支払った人**を、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください)" });
-  try {
-    const participantCollect = await channel.awaitMessages({
-      filter: (msg) => (msg.author.id === interaction.user.id),
-      max: 1,
-      time: 30000,
-      errors: ['time'],
-    });
-    argsRaw.participant = participantCollect.first()?.content;
-  } catch (e) {
-    await interaction.followUp({ content: "時間切れです。\n(コマンドは中断されました。)", ephemeral: true });
-    return;
   }
 
-  if (argsRaw.participant === undefined || !await isUserIdMention(guild, argsRaw.participant)) {
-    await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
+  // 金額を入力
+  const amountInput: string | undefined = await interactiveArg(interaction, "**金額**を入力してください。");
+  if (amountInput === undefined) {
+    await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
-  args.participant = await getUserWithEachFetch(guild, argsRaw.participant.slice(2, argsRaw.participant.length - 1));
-  if (args.participant === undefined) {
-    await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
-    return;
-  }
-
-  await interaction.followUp({ content: "**金額**を入力してください。" });
-  try {
-    const amountCollect = await channel.awaitMessages({
-      filter: (msg) => (msg.author.id === interaction.user.id),
-      max: 1,
-      time: 30000,
-      errors: ['time'],
-    });
-    argsRaw.amount = amountCollect.first()?.content;
-  } catch (e) {
-    await interaction.followUp({ content: "時間切れです。\n(コマンドは中断されました。)", ephemeral: true });
-    return;
-  }
-
-  const amount = argsRaw.amount === undefined ? undefined : parseInt(argsRaw.amount);
-  if (amount === undefined || Number.isNaN(amount)) {
+  // 数字に変換
+  const amount = parseInt(amountInput);
+  if (Number.isNaN(amount)) {
     await interaction.followUp({ content: "数字のみ入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
-  args.amount = amount;
 
-  await interaction.followUp({ content: "**件名**を入力してください。" });
-  try {
-    const memoCollect = await channel.awaitMessages({
-      filter: (msg) => (msg.author.id === interaction.user.id),
-      max: 1,
-      time: 30000,
-      errors: ['time'],
-    });
-    argsRaw.memo = memoCollect.first()?.content;
-  } catch (e) {
-    await interaction.followUp({ content: "時間切れです。\n(コマンドは中断されました。)", ephemeral: true });
-    return;
-  }
-
-  if (argsRaw.memo === undefined) {
+  // タイトルを入力
+  const memo: string | undefined = await interactiveArg(interaction, "**件名**を入力してください。");
+  if (memo === undefined) {
     await interaction.followUp({ content: "入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
-  args.memo = argsRaw.memo
 
-  const definedArgs: {
-    participant: GuildMember,
-    payers: GuildMember[],
-    amount: number,
-    memo: string,
-  } = {
-    participant: args.participant,
-    payers: args.payers,
-    amount: args.amount,
-    memo: args.memo
-  };
   // insert実行
   const result = insertCmd(
     guildId,
-    definedArgs.payers.map((payer) => ({
-      participant: transDiscordUser(definedArgs.participant),
+    payerMembers.map((payer) => ({
+      participant: transDiscordUser(participantMember),
       payer: transDiscordUser(payer),
-      amount: definedArgs.amount,
-      title: definedArgs.memo
+      amount: amount,
+      title: memo
     }))
   );
+
+  // メッセージ送信
+  if (result.msg === null) {
+    return;
+  }
+  if (result.isOk) {
+    await interaction.followUp(result.msg);
+  } else {
+    await interaction.followUp({ content: result.msg, ephemeral: true })
+  }
+}
+
+export const deleteDiscordInteractiveCmd = async (
+  client: Client<boolean>,
+  interaction: ButtonInteraction<CacheType>
+) => {
+  // intaractionがユーザーの入力待ちができるか判定
+  if (!ableToInterative(interaction)) {
+    await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
+    return;
+  }
+  const channel = interaction.channel;
+  
+  // コマンドが実行されたサーバーのIDを取得
+  const guildId: string | null = interaction.guildId;
+  if (guildId === null) {
+    await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
+    return;
+  }
+
+  const guild = await client.guilds.fetch(guildId)
+
+  const historyResult = await historyCmd(guildId, getUserNameWithAllFetch.bind({}, guild))
+  if (!historyResult.isOk) {
+    if (historyResult.msg !== null) {
+      await interaction.reply({ content: historyResult.msg });
+    }
+    return;
+  }
+
+  const indexInput: string | undefined = await interactiveArg(interaction, `${historyResult.msg}
+削除したい項目の先頭の番号を入力してください。
+キャンセルしたい場合はCを入力してください。`);
+  if (indexInput === undefined) {
+    await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
+  }
+
+  const index = parseInt(indexInput);
+  if (Number.isNaN(index)) {
+    await interaction.followUp({ content: "数字のみ入力してください。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
+  }
+
+  const result = await deleteCmd(guildId, getUserNameWithEachFetch.bind({}, guild), index);
 
   // メッセージ送信
   if (result.msg === null) {
