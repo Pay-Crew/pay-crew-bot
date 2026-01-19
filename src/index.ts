@@ -1,5 +1,22 @@
 import { Client, GatewayIntentBits, Events, ChannelType, Channel } from "discord.js";
-import { insertDiscordCmd, deleteDiscordCmd, historyDiscordCmd, listDiscordCmd, myListDiscordCmd, refundDiscordCmd, helpDiscordCmd, insertDiscordInteractiveCmd, testDiscordCmd, buttonDiscordCmd, deleteDiscordInteractiveCmd, historyDiscordInteractiveCmd, listDiscordInteractiveCmd, myListDiscordInteractiveCmd, refundDiscordInteractiveCmd, helpDiscordInteractiveCmd } from "./command-discord";
+import { 
+  insertDiscordCmd, 
+  deleteDiscordCmd, 
+  historyDiscordCmd, 
+  listDiscordCmd, 
+  myListDiscordCmd, 
+  refundDiscordCmd, 
+  helpDiscordCmd, 
+  buttonDiscordCmd, 
+  testDiscordCmd, 
+  insertDiscordInteractiveCmd, 
+  deleteDiscordInteractiveCmd, 
+  historyDiscordInteractiveCmd, 
+  listDiscordInteractiveCmd, 
+  myListDiscordInteractiveCmd, 
+  refundDiscordInteractiveCmd, 
+  helpDiscordInteractiveCmd 
+} from "./command-discord";
 
 //////
 
