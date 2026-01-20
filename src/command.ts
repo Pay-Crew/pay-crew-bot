@@ -63,6 +63,9 @@ export const insertCmd = (
   }[] = [];
 
   for (const data of datas) {
+    if (data.participant.id === data.payer.id) {
+      continue;
+    }
     // 新データ作成・追加
     const newData: Transaction = {
       participant: data.participant.id,
@@ -73,6 +76,10 @@ export const insertCmd = (
     };
     newDatas.push(newData);
     transactions.push(newData);
+  }
+
+  if (newDatas.length === 0) {
+    return ResultMsg.errMsg("同一人物間の支払いだったため、追加されませんでした。")
   }
 
   // データを書き込み
@@ -96,6 +103,7 @@ export const insertCmd = (
   const replyText: string = `以下の支払いを追加しました。
 \t${
   datas
+    .filter((data) => data.participant.id !== data.payer.id)
     .map((data) => (`返金する人: ${data.participant.name}
 \t払った人: ${data.payer.name}
 \t金額: ${data.amount}

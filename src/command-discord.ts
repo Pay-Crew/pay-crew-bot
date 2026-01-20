@@ -341,13 +341,8 @@ export const buttonDiscordCmd = async (
 };
 
 const mentionToMember = async (guild: Guild, mention: string) => {
-  console.log(mention);
-  console.log(mention.charAt(0) === "<")
-  console.log(mention.charAt(1) === "@")
-  console.log(mention.charAt(mention.length - 1) === ">");
   if (mention.charAt(0) === "<" && mention.charAt(1) === "@" && mention.charAt(mention.length - 1) === ">") {
     const t = await getUserWithEachFetch(guild, mention.slice(2, mention.length - 1));
-    console.log(t);
     return t;
   } else {
     return undefined;
@@ -440,14 +435,23 @@ export const insertDiscordInteractiveCmd = async (
     }
   }
 
+  // モードを入力
+  const splitModeInput: string | undefined = participantMembers.length === 1 ? "わ" : await interactiveArg(interaction, "割り勘の対象となる金額を入力する場合**わ**を、一人あたりの金額を入力する場合は**1**を入力してください。");
+  if (splitModeInput === undefined) {
+    await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
+  }
+  // 判定
+  const splitMode = ["わ", "わりかん", "割り勘", "w", "wa", "warikan", "warikann"].includes(splitModeInput) ? true : false;
+
   // 金額を入力
-  const amountInput: string | undefined = await interactiveArg(interaction, "**金額**を入力してください。");
+  const amountInput: string | undefined = await interactiveArg(interaction, `${splitMode ? "割り勘の対象となる" : "一人あたりの"}**金額**を入力してください。`);
   if (amountInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
   // 数字に変換
-  const amount = parseInt(amountInput);
+  const amount = splitMode ? Math.floor(parseInt(amountInput) / participantMembers.length) : parseInt(amountInput);
   if (Number.isNaN(amount)) {
     await interaction.followUp({ content: "数字のみ入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
