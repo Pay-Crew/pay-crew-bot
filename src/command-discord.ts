@@ -222,25 +222,35 @@ export const refundDiscordCmd = async (
   }
 };
 
+type Help = {
+  description: string,
+  detail: string,
+}
+
 const getHelp = (commandName: string | null) => {
   const commandList: string[] = [
+    "button",
     "insert",
     "delete",
     "list",
     "my-list",
     "refund",
-    "button",
     "help",
   ];
-  const helps: Map<string, string> = new Map([
-    ["insert", `\t支払いを追加します。誰かが誰かの支払いを建て替えた時や、誰かが全員分のまとめ払をした時などに実行してください。
+  const helps: Map<string, Help> = new Map([
+    ["insert", {
+      description: `支払いを追加します。`,
+      detail: `\t誰かが誰かの支払いを建て替えた時や、誰かが全員分のまとめ払をした時などに実行してください。
 \t支払いのタイトルを追加することもできます。
 \t例)Aさんの1000円分の支払いを、Bさんが建て替えた場合、
 \t\t支払った人 -> Bさん(メンション)
 \t\t返金する人 -> Aさん(メンション)
 \t\t金額 -> 1000
-\tとしてコマンドを実行してください。`], 
-    ["delete", `\t支払いを削除します。誤入力のときに使用してください。
+\tとしてコマンドを実行してください。`,
+    }], 
+    ["delete", {
+      description: `支払いを削除します。`,
+      detail: `誤入力のときに使用してください。
 \t実行する際には、あらかじめhistoryコマンドを実行し、削除したい支払いの先頭に表示されている番号をこのコマンドに与えてください。
 \t支払いを精算する際には、このコマンドではなく、refundコマンドを使用してください。
 \t例)historyコマンドの結果が、
@@ -250,30 +260,44 @@ const getHelp = (commandName: string | null) => {
 \`\`\`
 \tで、一番上の支払いを削除したい時、
 \t\tid -> 2
-\tとしてコマンドを実行してください。`], 
-    ["list", `\t支払いを合算して、一覧を表示します。
-\tユーザーの間の支払を相殺して、一つにまとめて表示します。支払いが存在しないユーザー間では何も表示されません。`], 
-    ["my-list", `\t自分が関係する支払いの一覧を表示します。
-\tユーザーの間の支払を相殺して、一つにまとめて、自分が関係あるものを表示します。`], 
-    ["refund", `\t指定のユーザー間の支払いを精算します。ユーザーの間で支払いを精算できるときに実行してください。
+\tとしてコマンドを実行してください。`
+    }], 
+    ["list", {
+      description: `支払いを合算して、一覧を表示します。`,
+      detail: `\tユーザーの間の支払を相殺して、一つにまとめて表示します。支払いが存在しないユーザー間では何も表示されません。`
+    }], 
+    ["my-list", {
+      description: `自分が関係する支払いの一覧を表示します。`,
+      detail: `\tユーザーの間の支払を相殺して、一つにまとめて、自分が関係あるものを表示します。`
+    }], 
+    ["refund", {
+      description: `指定のユーザー間の支払いを精算します。`,
+      detail: `ユーザーの間で支払いを精算できるときに実行してください。
 \t指定したユーザーの間の支払を相殺して、金額を表示します。その金額の精算が可能なら、「返金する」ボタンを押してください。
-\t返金した場合、自動的に支払いが追加され、historyコマンドから確認できるようになります。`], 
-    ["button", `\tこのBotの機能を、メッセージの送信で操作可能なボタンを表示します。
-\tコマンド操作に不慣れな方がいる場合は、ピン止めしておくと便利です。`], 
-    ["help", `\tコマンドのヘルプを表示します。このコマンドです。
-\tコマンド名を入力して特定のコマンドのヘルプを見ることもできます。`], 
+\t返金した場合、自動的に支払いが追加され、historyコマンドから確認できるようになります。`
+    }], 
+    ["button", {
+      description: `このBotの機能を、メッセージの送信で操作可能なボタンを表示します。`,
+      detail :`\tコマンド操作に不慣れな方がいる場合は、ピン止めしておくと便利です。`
+    }], 
+    ["help", {
+      description: `コマンドのヘルプを表示します。このコマンドです。`, 
+      detail: `\tコマンド名を入力して特定のコマンドのヘルプを見ることもできます。`
+    }], 
   ]);
   if (commandName === null) {
-    return commandList.map((v) => {
-      const cmdHelp = helps.get(v);
-      return `${v}コマンド\n\t${cmdHelp === undefined ? "現在、ヘルプ情報がありません。" : cmdHelp}`
+    return commandList.map((commandName) => {
+      const cmdHelp = helps.get(commandName);
+      return `${commandName}コマンド: ${cmdHelp === undefined ? "現在、ヘルプ情報がありません。" : cmdHelp.description}`
     }).join("\n\n");
   } else {
-    const description = helps.get(commandName);
-    if (description === undefined) {
+    const cmdHelp = helps.get(commandName);
+    if (cmdHelp === undefined) {
       return "現在、ヘルプ情報がありません。";
     } else {
-      return description;
+      return `${commandName}コマンド: ${cmdHelp === undefined ? "現在、ヘルプ情報がありません。" : cmdHelp.description}
+${cmdHelp.detail}
+`;
     }
   }
 };
@@ -285,55 +309,40 @@ export const helpDiscordCmd = async (
   const commandName = interaction.options.getString("コマンド名");
 
   const result = getHelp(commandName);
-  await interaction.reply({ content: result, ephemeral: true })
+  await interaction.reply({ content: result })
 };
 
 export const buttonDiscordCmd = async (
   client: Client<boolean>,
   interaction: ChatInputCommandInteraction<CacheType>
 ) => {
-  const buttons = [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId("insert")
-        .setLabel("支払いの追加")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("delete")
-        .setLabel("支払いの削除")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("history")
-        .setLabel("支払いの一覧表示")
-        .setStyle(ButtonStyle.Success),
-    ),
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId("list")
-        .setLabel("合算した支払いの一覧表示")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("my-list")
-        .setLabel("合算した自分の支払いの一覧表示")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("refund")
-        .setLabel("精算")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("help")
-        .setLabel("ヘルプ")
-        .setStyle(ButtonStyle.Success),
-    ),
-  ];
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("insert")
+      .setLabel("支払いの追加")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("history")
+      .setLabel("支払いの一覧表示")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("my-list")
+      .setLabel("合算した自分の支払いの一覧表示")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("refund")
+      .setLabel("精算")
+      .setStyle(ButtonStyle.Success),
+  );
   await interaction.reply({
     content: "操作ボタン(**ピン止め推奨**)",
-    components: buttons,
+    components: [buttons],
   });
 };
 
 const mentionToMember = async (guild: Guild, mention: string) => {
   if (mention.charAt(0) === "<" && mention.charAt(1) === "@" && mention.charAt(mention.length - 1) === ">") {
+    console.log(mention);
     return await getUserWithEachFetch(guild, mention.slice(2, mention.length - 1));
   } else {
     return undefined;
@@ -617,8 +626,8 @@ export const refundDiscordInteractiveCmd = async (
     await interaction.followUp({ content: "ユーザーを2人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
-  const user1: GuildMember | undefined = await getUserWithEachFetch(guild, usersInputSplited[0]);
-  const user2: GuildMember | undefined = await getUserWithEachFetch(guild, usersInputSplited[1]);
+  const user1: GuildMember | undefined = await mentionToMember(guild, `${usersInputSplited[0]}>`);
+  const user2: GuildMember | undefined = await mentionToMember(guild, `${usersInputSplited[1]}>`);
   if (user1 === undefined || user2 === undefined) {
     await interaction.followUp({ content: "ユーザーを2人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
