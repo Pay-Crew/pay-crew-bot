@@ -341,9 +341,14 @@ export const buttonDiscordCmd = async (
 };
 
 const mentionToMember = async (guild: Guild, mention: string) => {
+  console.log(mention);
+  console.log(mention.charAt(0) === "<")
+  console.log(mention.charAt(1) === "@")
+  console.log(mention.charAt(mention.length - 1) === ">");
   if (mention.charAt(0) === "<" && mention.charAt(1) === "@" && mention.charAt(mention.length - 1) === ">") {
-    console.log(mention);
-    return await getUserWithEachFetch(guild, mention.slice(2, mention.length - 1));
+    const t = await getUserWithEachFetch(guild, mention.slice(2, mention.length - 1));
+    console.log(t);
+    return t;
   } else {
     return undefined;
   }
@@ -621,7 +626,7 @@ export const refundDiscordInteractiveCmd = async (
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
-  const usersInputSplited = usersInput.split(">").slice(0, -1);
+  const usersInputSplited = usersInput.replace(/\s+/g, "").split(">").slice(0, -1);
   if (usersInputSplited.length !== 2) {
     await interaction.followUp({ content: "ユーザーを2人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
@@ -648,10 +653,11 @@ export const refundDiscordInteractiveCmd = async (
   const confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
   // ボタン操作を待つ関数
   const waitButtonAction = async (refund: Refund) => {
-    const response = await interaction.reply({
+    const send = interaction.replied ? interaction.followUp : interaction.reply;
+    const response = await send.bind(interaction, {
       content: `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
       components: [row],
-    });
+    })();
     try {
       confirmation.buttonInteration = await response.awaitMessageComponent({
         filter: (i) => i.user.id === interaction.user.id,

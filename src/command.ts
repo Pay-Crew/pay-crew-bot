@@ -343,6 +343,9 @@ const getRefundList = (guildId: string): Refund[] | null => {
 
     // 逆向きの支払いの金額を取得、相殺
     const reverseAmount: number | undefined = refundsMap.get(reverseKey);
+    if (reverseAmount !== undefined && amount === reverseAmount) {
+      continue;
+    }
     if (reverseAmount === undefined || amount > reverseAmount) {
       refunds.push({
         from: participantId,
