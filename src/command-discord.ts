@@ -417,7 +417,7 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // 支払ってもらった人の入力
-  const participantsInput: string | undefined = await interactiveArg(interaction, "今回、**建て替えを受けた人**を、メンションで入力してください。複数人入力できます。\n(@に続けて、Discordのユーザー名を入力してください。)");
+  const participantsInput: string | undefined = await interactiveArg(interaction, "今回、**建て替えを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。\n(@に続けて、Discordのユーザー名を入力してください。)");
   if (participantsInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
@@ -436,7 +436,7 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // モードを入力
-  const splitModeInput: string | undefined = participantMembers.length === 1 ? "わ" : await interactiveArg(interaction, "割り勘の対象となる金額を入力する場合**わ**を、一人あたりの金額を入力する場合は**1**を入力してください。");
+  const splitModeInput: string | undefined = participantMembers.length === 1 ? "わ" : await interactiveArg(interaction, "割り勘の対象となる金額を入力する場合「**わ**」を、一人あたりの金額を入力する場合は「**1**」を入力してください。");
   if (splitModeInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
