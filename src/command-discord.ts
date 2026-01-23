@@ -379,7 +379,7 @@ const interactiveArg = async (
 
 const ableToInterative = (
   interaction: ChatInputCommandInteraction<CacheType> | ButtonInteraction<CacheType>
-): interaction is ButtonInteraction<CacheType> & { channel: GuildBasedChannel } => {
+): interaction is (ChatInputCommandInteraction<CacheType> | ButtonInteraction<CacheType>) & { channel: GuildBasedChannel } => {
   return interaction.channel !== null && interaction.inGuild();
 };
 
