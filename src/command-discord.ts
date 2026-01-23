@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, EmbedBuilder, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
 import { deleteCmd, historyCmd, insertCmd, listCmd, Refund, refundCmd } from "./command";
-import { GuildMemberGetter, replyResult, transDiscordUser } from "./discord-logic";
+import { ableToInterative, buttonReplyResult, buttonSend, GuildMemberGetter, interactiveArg, mentionToMember, replyResult, transDiscordUser } from "./discord-logic";
 
 export const insertDiscordCmd = async (
   client: Client<boolean>,
@@ -352,49 +352,6 @@ export const buttonDiscordCmd = async (
   })
 };
 
-const mentionToMember = async (members: GuildMemberGetter, mention: string) => {
-  if (mention.charAt(0) === "<" && mention.charAt(1) === "@" && mention.charAt(mention.length - 1) === ">") {
-    const t = await members.getUserWithFetch(mention.slice(2, mention.length - 1));
-    return t;
-  } else {
-    return undefined;
-  }
-};
-
-const interactiveArg = async (
-  interaction: (ButtonInteraction<CacheType> | ChatInputCommandInteraction<CacheType>) & { channel: GuildBasedChannel },
-  msg: string
-) => {
-  const channel = interaction.channel;
-
-  let argInput: string | undefined = undefined;
-  if (interaction.replied) {
-    await interaction.followUp({ content: msg });
-  } else {
-    await interaction.reply({ content: msg });
-  }
-  try {
-    const payersCollect = await channel.awaitMessages({
-      filter: (msg) => (msg.author.id === interaction.user.id),
-      max: 1,
-      time: 30000,
-      errors: ['time'],
-    });
-    argInput = payersCollect.first()?.content;
-  } catch (e) {
-    await interaction.followUp({ content: "時間切れです。\n(コマンドは中断されました。)", ephemeral: true });
-    return undefined;
-  }
-
-  return argInput;
-};
-
-const ableToInterative = (
-  interaction: ChatInputCommandInteraction<CacheType> | ButtonInteraction<CacheType>
-): interaction is (ChatInputCommandInteraction<CacheType> | ButtonInteraction<CacheType>) & { channel: GuildBasedChannel } => {
-  return interaction.channel !== null && interaction.inGuild();
-};
-
 export const insertDiscordInteractiveCmd = async (
   client: Client<boolean>,
   interaction: ButtonInteraction<CacheType>
@@ -415,8 +372,13 @@ export const insertDiscordInteractiveCmd = async (
   // ユーザー名取得用
   const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
+  const buttonName = "支払いの追加";
+  const interactiveArgThis = async (msg: string) => {
+    return await await interactiveArg(interaction, msg, buttonName);
+  }
+
   // 支払った人の入力
-  const payerInput: string | undefined = await interactiveArg(interaction, "今回、**実際に支払った人**を、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください)");
+  const payerInput: string | undefined = await interactiveArgThis("今回、**実際に支払った人**を、メンションで入力してください。(@に続けて、Discordのユーザー名を入力してください)");
   if (payerInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
@@ -429,13 +391,17 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // 支払ってもらった人の入力
-  const participantsInput: string | undefined = await interactiveArg(interaction, "今回、**支払いを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。\n(@に続けて、Discordのユーザー名を入力してください。)");
+  const participantsInput: string | undefined = await interactiveArgThis("今回、**支払いを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。\n(@に続けて、Discordのユーザー名を入力してください。)");
   if (participantsInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
   // 一人分に分割して、メンバーか判定
   const participantsInputSplited: string[] = participantsInput?.replace(/\s+/g, "").split(">").slice(0, -1);
+  if (participantsInputSplited.length === 0) {
+    await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
+  }
   const participantMembers: GuildMember[] = [];
   for (const payer of participantsInputSplited) {
     const member = await mentionToMember(members, `${payer}>`);
@@ -448,7 +414,7 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // モードを入力
-  const splitModeInput: string | undefined = participantMembers.length === 1 ? "わ" : await interactiveArg(interaction, "割り勘の対象となる金額を入力する場合「**わ**」を、一人あたりの金額を入力する場合は「**1**」を入力してください。");
+  const splitModeInput: string | undefined = participantMembers.length === 1 ? "1" : await interactiveArgThis("割り勘の対象となる金額を入力する場合「**わ**」を、一人あたりの金額を入力する場合は「**1**」を入力してください。");
   if (splitModeInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
@@ -457,7 +423,7 @@ export const insertDiscordInteractiveCmd = async (
   const splitMode = ["わ", "わりかん", "割り勘", "w", "wa", "warikan", "warikann"].includes(splitModeInput) ? true : false;
 
   // 金額を入力
-  const amountInput: string | undefined = await interactiveArg(interaction, `${splitMode ? "割り勘の対象となる" : "一人あたりの"}**金額**を入力してください。`);
+  const amountInput: string | undefined = await interactiveArgThis(`${splitMode ? "割り勘の対象となる" : "一人あたりの"}**金額**を入力してください。`);
   if (amountInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
@@ -470,7 +436,7 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // タイトルを入力
-  const memo: string | undefined = await interactiveArg(interaction, "**件名**を入力してください。");
+  const memo: string | undefined = await interactiveArgThis("**件名**を入力してください。");
   if (memo === undefined) {
     await interaction.followUp({ content: "入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
@@ -488,7 +454,7 @@ export const insertDiscordInteractiveCmd = async (
   );
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await buttonReplyResult(interaction, result, buttonName);
 };
 
 export const deleteDiscordInteractiveCmd = async (
@@ -517,8 +483,13 @@ export const deleteDiscordInteractiveCmd = async (
     }
     return;
   }
+  
+  const buttonName = "支払いの削除";
+  const interactiveArgThis = async (msg: string) => {
+    return await await interactiveArg(interaction, msg, buttonName);
+  }
 
-  const indexInput: string | undefined = await interactiveArg(interaction, `${historyResult.msg}
+  const indexInput: string | undefined = await interactiveArgThis(`${historyResult.msg}
 削除したい項目の先頭の番号を入力してください。
 キャンセルしたい場合はCを入力してください。`);
   if (indexInput === undefined) {
@@ -538,7 +509,7 @@ export const deleteDiscordInteractiveCmd = async (
   const result = await deleteCmd(guildId, members.getUserNameWithFetch.bind(members), index);
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await buttonReplyResult(interaction, result, buttonName);
 };
 
 export const historyDiscordInteractiveCmd = async (
@@ -551,6 +522,8 @@ export const historyDiscordInteractiveCmd = async (
     await interaction.reply({ content: "このコマンドはサーバー内でのみ使用可能です。", ephemeral: true });
     return;
   }
+  
+  const buttonName = "支払いの追加";
 
   // ユーザー名取得用
   const members = await GuildMemberGetter.fromGuildId(client, guildId);
@@ -562,7 +535,7 @@ export const historyDiscordInteractiveCmd = async (
   )
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await buttonReplyResult(interaction, result, buttonName)
 };
 
 export const listDiscordInteractiveCmd = async (
@@ -576,6 +549,8 @@ export const listDiscordInteractiveCmd = async (
     return;
   }
 
+  const buttonName = "合算した支払いの一覧表示";
+
   // ユーザー名取得用
   const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
@@ -586,7 +561,7 @@ export const listDiscordInteractiveCmd = async (
   );
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await buttonReplyResult(interaction, result, buttonName);
 };
 
 export const myListDiscordInteractiveCmd = async (
@@ -600,6 +575,8 @@ export const myListDiscordInteractiveCmd = async (
     return;
   }
 
+  const buttonName = "合算した自分の支払いの一覧表示";
+
   // ユーザー名取得用
   const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
@@ -611,7 +588,7 @@ export const myListDiscordInteractiveCmd = async (
   );
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await buttonReplyResult(interaction, result, buttonName);
 };
 
 export const refundDiscordInteractiveCmd = async (
@@ -634,8 +611,13 @@ export const refundDiscordInteractiveCmd = async (
   // ユーザー名取得用
   const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
+  const buttonName = "精算";
+  const interactiveArgThis = async (msg: string) => {
+    return await await interactiveArg(interaction, msg, buttonName);
+  }
+
   // 引数を取得
-  const usersInput: string | undefined = await interactiveArg(interaction, "精算に関わる人を**2人**、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください")
+  const usersInput: string | undefined = await interactiveArgThis("精算に関わる人を**2人**、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください")
   // const user1: User = interaction.options.getUser("返金するorされる人1", true);
   // const user2: User = interaction.options.getUser("返金するorされる人2", true);
   if (usersInput === undefined) {
@@ -671,7 +653,9 @@ export const refundDiscordInteractiveCmd = async (
   const waitButtonAction = async (refund: Refund) => {
     const send = interaction.replied ? interaction.followUp : interaction.reply;
     const response = await send.bind(interaction, {
-      content: `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
+      content: `[現在、「精算」ボタンを${interaction.user.displayName}が実行中]
+
+<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
       components: [row],
     })();
     try {
@@ -710,9 +694,12 @@ export const refundDiscordInteractiveCmd = async (
 
   // メッセージ送信
   if (result.msg !== null && confirmation.buttonInteration !== undefined) {
+    result.msg = `[現在、「**${buttonName}**」ボタンを${interaction.user.displayName}が実行中]
+
+${result.msg}`;
     await confirmation.buttonInteration.update({ content: result.msg, components: [] });
   } else {
-    replyResult(interaction, result);
+    await buttonReplyResult(interaction, result, buttonName);
   }
 };
 
@@ -720,8 +707,9 @@ export const helpDiscordInteractiveCmd = async (
   client: Client<boolean>,
   interaction: ButtonInteraction<CacheType>
 ) => {
+  const buttonName = "ヘルプ"
   const result = getHelp(null);
-  await interaction.reply({ content: result, ephemeral: true })
+  await buttonSend(interaction, buttonName, { content: result })
 };
 
 export const testDiscordCmd = async (
