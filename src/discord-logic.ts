@@ -1,5 +1,38 @@
-import { ButtonInteraction, CacheType, ChatInputCommandInteraction, Guild, GuildMember, User } from "discord.js";
+import { ButtonInteraction, CacheType, ChatInputCommandInteraction, Client, Guild, GuildMember, User } from "discord.js";
 import { type CmdUser, type ResultMsg } from "./command";
+
+export class GuildMemberGetter {
+  private guild: Guild;
+  private fetched: boolean = false;
+
+  constructor(guild: Guild) {
+    this.guild = guild;
+  }
+
+  public static async fromGuildId(client: Client, guildId: string) {
+    return new GuildMemberGetter(await client.guilds.fetch(guildId));
+  }
+
+  public async getUserWithFetch(id: string) {
+    const member = this.guild.members.cache.get(id);
+    if (!this.fetched && member === undefined) {
+      try {
+        await this.guild.members.fetch();
+      } catch (e) {
+        console.log("Waring: GatewayRateLimitError\n");
+      }
+      this.fetched = true;
+      return this.guild.members.cache.get(id);
+    } else {
+      return member
+    }
+  };
+
+  public async getUserNameWithFetch(id: string) {
+    const member = await this.getUserWithFetch(id);
+    return member === undefined ? "(存在しないユーザー)" : member.displayName;
+  };
+}
 
 export const replyResult = async (interaction: ChatInputCommandInteraction<CacheType> | ButtonInteraction<CacheType>, result: ResultMsg) => {
   if (result.msg === null) {
@@ -18,39 +51,4 @@ export const transDiscordUser = (user: User | GuildMember): CmdUser => {
     id: user.id,
     name: user.displayName
   }
-};
-
-export const getUserWithAllFetch = async (guild: Guild, id: string) => {
-  let member = guild.members.cache.get(id);
-  if (member === undefined) {
-    await guild.members.fetch();
-    member = guild.members.cache.get(id);
-  }
-  return member
-};
-
-export const getUserNameWithAllFetch = async (guild: Guild, id: string) => {
-  const member = await getUserWithAllFetch(guild, id);
-  return member === undefined ? "(存在しないユーザー)" : member.displayName;
-};
-
-export const getUserWithEachFetch = async (guild: Guild, id: string) => {
-  let member = guild.members.cache.get(id);
-  if (member === undefined) {
-    try {
-      await guild.members.fetch(id);
-    } catch (e) {
-      console.log(`Warning: No such user does not exsit.
-\tguildId: ${guild.id}
-\tid: ${id}
-`)
-    }
-    member = guild.members.cache.get(id);
-  }
-  return member
-};
-
-export const getUserNameWithEachFetch = async (guild: Guild, id: string) => {
-  const member = await getUserWithEachFetch(guild, id);
-  return member === undefined ? "(存在しないユーザー)" : member.displayName;
 };

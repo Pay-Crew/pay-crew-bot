@@ -17,6 +17,7 @@ import {
   refundDiscordInteractiveCmd, 
   helpDiscordInteractiveCmd 
 } from "./command-discord";
+import { replyResult } from "./discord-logic";
 
 //////
 
@@ -78,6 +79,9 @@ client.once(Events.ClientReady, async (c) => {
 
 // コマンドの処理
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand() && !interaction.isButton()) {
+    return;
+  }
   if (interaction.isChatInputCommand()) {
     // コマンド名で分岐
     if (interaction.commandName === "insert") {

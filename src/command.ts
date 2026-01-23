@@ -159,7 +159,7 @@ export const deleteCmd = async (
 `)
 
   // メッセージ作成
-  const replyText: string = `以下の支払いを削除しました。\n\t返金する人: ${
+  const replyText: string = `以下の支払いを削除しました。(他の項目のidが変更されている場合があります。)\n\t返金する人: ${
     await getUserName(deletedItem.participant)
   }\n\t払った人: ${
     await getUserName(deletedItem.payer)
@@ -227,19 +227,21 @@ export const historyCmd = async (
     const dateMsg = dateToString(transaction.date);
     // メッセージを一行追加
     replyTexts.push(
-      `[${i}] ${
-        equalWidthFormat(transaction.memo, 20, {widthRate: {narrow: 3, wide: 5}, cut: true})
+      `[${
+        equalWidthFormat(`${i}`, 3, {widthRate: {narrow: 3, wide: 5}})
+      }] ${
+        equalWidthFormat(transaction.memo, 15, {widthRate: {narrow: 3, wide: 5}, cut: true})
       }: ${
-        equalWidthFormat(participantName, 15, {widthRate: {narrow: 3, wide: 5}, cut: true})
+        equalWidthFormat(participantName, 12, {widthRate: {narrow: 3, wide: 5}, cut: true})
       } は ${
-        equalWidthFormat(payerName, 15, {widthRate: {narrow: 3, wide: 5}, cut: true})
+        equalWidthFormat(payerName, 12, {widthRate: {narrow: 3, wide: 5}, cut: true})
       } に ${
         equalWidthFormat(`${transaction.amount}`, 8, {widthRate: {narrow: 3, wide: 5}})
       }円 払ってもらった(${dateMsg})\n`
     );
   }
-  if (transactions.length > showCount) {
-    replyTexts.push(`(他${transactions.length - showCount}件)`);
+  if (transactionsFiltered.length > showCount) {
+    replyTexts.push(`(他${transactionsFiltered.length - showCount}件)`);
   }
   const replyText: string = replyTexts.length === 0 ? "見つかりませんでした" : `\`\`\`\n${replyTexts.join("")}\n\`\`\``;
   return ResultMsg.okMsg(replyText);

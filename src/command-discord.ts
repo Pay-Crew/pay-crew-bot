@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
 import { deleteCmd, historyCmd, insertCmd, listCmd, Refund, refundCmd } from "./command";
-import { getUserNameWithAllFetch, getUserNameWithEachFetch, getUserWithEachFetch, replyResult, transDiscordUser } from "./discord-logic";
+import { GuildMemberGetter, replyResult, transDiscordUser } from "./discord-logic";
 
 export const insertDiscordCmd = async (
   client: Client<boolean>,
@@ -49,12 +49,12 @@ export const deleteDiscordCmd = async (
   const index: number = interaction.options.getInteger("id", true);
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // delete実行
   const result = await deleteCmd(
     guildId, 
-    getUserNameWithEachFetch.bind({}, guild),
+    members.getUserNameWithFetch.bind(members),
     index, 
   )
 
@@ -79,12 +79,12 @@ export const historyDiscordCmd = async (
   const user2 = interaction.options.getUser("検索するユーザー2");
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // history実行
   const result = await historyCmd(
-    guildId, 
-    getUserNameWithAllFetch.bind({}, guild),
+    guildId,
+    members.getUserNameWithFetch.bind(members),
     count === null ? undefined : count, 
     user1 === null ? undefined : transDiscordUser(user1), 
     user2 === null ? undefined : transDiscordUser(user2),
@@ -106,12 +106,12 @@ export const listDiscordCmd = async (
   }
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // list実行
   const result = await listCmd(
-    guildId, 
-    getUserNameWithAllFetch.bind({}, guild),
+    guildId,
+    members.getUserNameWithFetch.bind(members),
   );
 
   // メッセージ送信
@@ -130,12 +130,12 @@ export const myListDiscordCmd = async (
   }
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // list実行
   const result = await listCmd(
-    guildId, 
-    getUserNameWithAllFetch.bind({}, guild),
+    guildId,
+    members.getUserNameWithFetch.bind(members),
     interaction.user.id,
   );
 
@@ -202,13 +202,13 @@ export const refundDiscordCmd = async (
   };
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // refundを実行
   const result = await refundCmd(
     guildId,
     waitButtonAction,
-    getUserNameWithAllFetch.bind({}, guild),
+    members.getUserNameWithFetch.bind(members),
     transDiscordUser(user1),
     transDiscordUser(user2),
   )
@@ -340,9 +340,9 @@ export const buttonDiscordCmd = async (
   });
 };
 
-const mentionToMember = async (guild: Guild, mention: string) => {
+const mentionToMember = async (members: GuildMemberGetter, mention: string) => {
   if (mention.charAt(0) === "<" && mention.charAt(1) === "@" && mention.charAt(mention.length - 1) === ">") {
-    const t = await getUserWithEachFetch(guild, mention.slice(2, mention.length - 1));
+    const t = await members.getUserWithFetch(mention.slice(2, mention.length - 1));
     return t;
   } else {
     return undefined;
@@ -357,9 +357,9 @@ const interactiveArg = async (
 
   let argInput: string | undefined = undefined;
   if (interaction.replied) {
-    await interaction.followUp({ content: msg });
+    await interaction.followUp({ content: msg, ephemeral: true });
   } else {
-    await interaction.reply({ content: msg });
+    await interaction.reply({ content: msg, ephemeral: true });
   }
   try {
     const payersCollect = await channel.awaitMessages({
@@ -401,7 +401,7 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // 支払った人の入力
   const payerInput: string | undefined = await interactiveArg(interaction, "今回、**実際に支払った人**を、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください)");
@@ -410,7 +410,7 @@ export const insertDiscordInteractiveCmd = async (
     return;
   }
   // サーバーのメンバーか判定
-  const payerMember = await mentionToMember(guild, payerInput);
+  const payerMember = await mentionToMember(members, payerInput);
   if (payerMember === undefined) {
     await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
@@ -426,7 +426,7 @@ export const insertDiscordInteractiveCmd = async (
   const participantsInputSplited: string[] = participantsInput?.replace(/\s+/g, "").split(">").slice(0, -1);
   const participantMembers: GuildMember[] = [];
   for (const payer of participantsInputSplited) {
-    const member = await mentionToMember(guild, `${payer}>`);
+    const member = await mentionToMember(members, `${payer}>`);
     if (member === undefined) {
       await interaction.followUp({ content: "存在するユーザーをメンション形式で入力してください。\n(コマンドは中断されました。)", ephemeral: true });
       return;
@@ -496,9 +496,9 @@ export const deleteDiscordInteractiveCmd = async (
     return;
   }
 
-  const guild = await client.guilds.fetch(guildId)
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
-  const historyResult = await historyCmd(guildId, getUserNameWithAllFetch.bind({}, guild))
+  const historyResult = await historyCmd(guildId, members.getUserNameWithFetch.bind(members))
   if (!historyResult.isOk) {
     if (historyResult.msg !== null) {
       await interaction.reply({ content: historyResult.msg });
@@ -523,7 +523,7 @@ export const deleteDiscordInteractiveCmd = async (
     return;
   }
 
-  const result = await deleteCmd(guildId, getUserNameWithEachFetch.bind({}, guild), index);
+  const result = await deleteCmd(guildId, members.getUserNameWithFetch.bind(members), index);
 
   // メッセージ送信
   replyResult(interaction, result);
@@ -541,12 +541,12 @@ export const historyDiscordInteractiveCmd = async (
   }
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // history実行
   const result = await historyCmd(
     guildId, 
-    getUserNameWithAllFetch.bind({}, guild)
+    members.getUserNameWithFetch.bind(members)
   )
 
   // メッセージ送信
@@ -565,12 +565,12 @@ export const listDiscordInteractiveCmd = async (
   }
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // list実行
   const result = await listCmd(
     guildId, 
-    getUserNameWithAllFetch.bind({}, guild),
+    members.getUserNameWithFetch.bind(members),
   );
 
   // メッセージ送信
@@ -589,12 +589,12 @@ export const myListDiscordInteractiveCmd = async (
   }
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // list実行
   const result = await listCmd(
     guildId, 
-    getUserNameWithAllFetch.bind({}, guild),
+    members.getUserNameWithFetch.bind(members),
     interaction.user.id,
   );
 
@@ -620,7 +620,7 @@ export const refundDiscordInteractiveCmd = async (
   }
 
   // ユーザー名取得用
-  const guild = await client.guilds.fetch(guildId);
+  const members = await GuildMemberGetter.fromGuildId(client, guildId);
 
   // 引数を取得
   const usersInput: string | undefined = await interactiveArg(interaction, "精算に関わる人を**2人**、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください")
@@ -635,8 +635,8 @@ export const refundDiscordInteractiveCmd = async (
     await interaction.followUp({ content: "ユーザーを2人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
   }
-  const user1: GuildMember | undefined = await mentionToMember(guild, `${usersInputSplited[0]}>`);
-  const user2: GuildMember | undefined = await mentionToMember(guild, `${usersInputSplited[1]}>`);
+  const user1: GuildMember | undefined = await mentionToMember(members, `${usersInputSplited[0]}>`);
+  const user2: GuildMember | undefined = await mentionToMember(members, `${usersInputSplited[1]}>`);
   if (user1 === undefined || user2 === undefined) {
     await interaction.followUp({ content: "ユーザーを2人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
@@ -690,7 +690,7 @@ export const refundDiscordInteractiveCmd = async (
   const result = await refundCmd(
     guildId,
     waitButtonAction,
-    getUserNameWithAllFetch.bind({}, guild),
+    members.getUserNameWithFetch.bind(members),
     transDiscordUser(user1),
     transDiscordUser(user2),
   )
