@@ -523,7 +523,7 @@ export const historyDiscordInteractiveCmd = async (
     return;
   }
   
-  const buttonName = "支払いの追加";
+  const buttonName = "支払いの一覧表示";
 
   // ユーザー名取得用
   const members = await GuildMemberGetter.fromGuildId(client, guildId);
