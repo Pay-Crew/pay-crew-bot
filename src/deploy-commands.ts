@@ -33,7 +33,7 @@ const commands = [
     .setDescription('指定したIDのデータを削除します')
     .addIntegerOption((option) => option
       .setName('id')
-      .setDescription('削除したいデータの番号（ID）')
+      .setDescription('削除したいデータの番号（ID）(historyコマンドで表示)')
       .setRequired(true)
     ),
   // 履歴表示

@@ -216,7 +216,21 @@ export const historyCmd = async (
 `)
 
   // メッセージ作成
-  const replyTexts: string[] = [];
+  const replyTexts: string[] = [
+    `[${
+        equalWidthFormat("id", 3, {widthRate: {narrow: 3, wide: 5}})
+      }] ${
+        equalWidthFormat("件名", 10, {widthRate: {narrow: 3, wide: 5}, cut: true})
+      } | ${
+        equalWidthFormat("支払った人", 12, {widthRate: {narrow: 3, wide: 5}, cut: true})
+      } | ${
+        equalWidthFormat("支払われた人", 12, {widthRate: {narrow: 3, wide: 5}, cut: true})
+      } | 　${
+        equalWidthFormat("金額", 8, {widthRate: {narrow: 3, wide: 5}})
+      } | ${
+        equalWidthFormat("日付", 19, {widthRate: {narrow: 3, wide: 5}})
+      }\n`
+  ];
   for (const { i, transaction } of transactionsFiltered
     .reverse()
     .slice(0, showCount)) {
@@ -230,14 +244,14 @@ export const historyCmd = async (
       `[${
         equalWidthFormat(`${i}`, 3, {widthRate: {narrow: 3, wide: 5}})
       }] ${
-        equalWidthFormat(transaction.memo, 15, {widthRate: {narrow: 3, wide: 5}, cut: true})
-      }: ${
+        equalWidthFormat(transaction.memo, 10, {widthRate: {narrow: 3, wide: 5}, cut: true})
+      } | ${
         equalWidthFormat(participantName, 12, {widthRate: {narrow: 3, wide: 5}, cut: true})
-      } は ${
+      } | ${
         equalWidthFormat(payerName, 12, {widthRate: {narrow: 3, wide: 5}, cut: true})
-      } に ${
+      } | ${
         equalWidthFormat(`${transaction.amount}`, 8, {widthRate: {narrow: 3, wide: 5}})
-      }円 払ってもらった(${dateMsg})\n`
+      }円 | ${dateMsg}\n`
     );
   }
   if (transactionsFiltered.length > showCount) {

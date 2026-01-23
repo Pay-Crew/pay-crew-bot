@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, EmbedBuilder, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
 import { deleteCmd, historyCmd, insertCmd, listCmd, Refund, refundCmd } from "./command";
 import { GuildMemberGetter, replyResult, transDiscordUser } from "./discord-logic";
 
@@ -250,13 +250,14 @@ const getHelp = (commandName: string | null) => {
     }], 
     ["delete", {
       description: `支払いを削除します。`,
-      detail: `誤入力のときに使用してください。
+      detail: `\t誤入力のときに使用してください。
 \t実行する際には、あらかじめhistoryコマンドを実行し、削除したい支払いの先頭に表示されている番号をこのコマンドに与えてください。
 \t支払いを精算する際には、このコマンドではなく、refundコマンドを使用してください。
 \t例)historyコマンドの結果が、
 \`\`\`
-[2]           (No Title):           User1 は           User2 に      100円 払ってもらった(2026-01-01 00:00:00)
-[1]           (No Title):           User2 は           User3 に     1000円 払ってもらった(2026-01-01 00:00:00)
+[ id] 　     件名 | 　  支払った人 |   支払われた人 | 　　   金額 | 　              日付
+[  2]       test |        user1 |        user2 |     1000円 | 2026-01-23 15:32:54
+[  1] (No Title) |        user2 |        user1 |      200円 | 2026-01-23 15:31:58
 \`\`\`
 \tで、一番上の支払いを削除したい時、
 \t\tid -> 2
@@ -272,7 +273,7 @@ const getHelp = (commandName: string | null) => {
     }], 
     ["refund", {
       description: `指定のユーザー間の支払いを精算します。`,
-      detail: `ユーザーの間で支払いを精算できるときに実行してください。
+      detail: `\tユーザーの間で支払いを精算できるときに実行してください。
 \t指定したユーザーの間の支払を相殺して、金額を表示します。その金額の精算が可能なら、「返金する」ボタンを押してください。
 \t返金した場合、自動的に支払いが追加され、historyコマンドから確認できるようになります。`
     }], 
@@ -281,8 +282,8 @@ const getHelp = (commandName: string | null) => {
       detail :`\tコマンド操作に不慣れな方がいる場合は、ピン止めしておくと便利です。`
     }], 
     ["help", {
-      description: `コマンドのヘルプを表示します。このコマンドです。`, 
-      detail: `\tコマンド名を入力して特定のコマンドのヘルプを見ることもできます。`
+      description: `コマンドのヘルプを表示します。コマンド名を入力して特定のコマンドのヘルプを見ることもできます。`, 
+      detail: ``
     }], 
   ]);
   if (commandName === null) {
@@ -291,7 +292,8 @@ const getHelp = (commandName: string | null) => {
       return `${commandName}コマンド: ${cmdHelp === undefined ? "現在、ヘルプ情報がありません。" : cmdHelp.description}`
     }).join("\n\n");
   } else {
-    const cmdHelp = helps.get(commandName);
+    const cmdHelpTmp = helps.get(commandName);
+    const cmdHelp = (cmdHelpTmp === undefined && commandName.charAt(0) === "/") ? helps.get(commandName.slice(1, commandName.length)) : cmdHelpTmp;
     if (cmdHelp === undefined) {
       return "現在、ヘルプ情報がありません。";
     } else {
@@ -316,6 +318,16 @@ export const buttonDiscordCmd = async (
   client: Client<boolean>,
   interaction: ChatInputCommandInteraction<CacheType>
 ) => {
+  const embed = new EmbedBuilder()
+    .setTitle('機能メニュー')
+    .setDescription('以下のボタンから操作を選択してください。')
+    .addFields(
+      { name: '支払いの追加', value: '支払いを追加します。', inline: false },
+      { name: '支払いの一覧表示', value: 'これまで追加された支払いを一覧表示します', inline: false },
+      { name: '合算した自分の支払いの一覧表示', value: '自分が関係する、合算された支払いを表示します。', inline: false },
+      { name: '精算', value: '2人の間で支払いを精算します。', inline: false },
+    )
+    .setColor(0x0099ff);
   const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId("insert")
@@ -335,9 +347,9 @@ export const buttonDiscordCmd = async (
       .setStyle(ButtonStyle.Success),
   );
   await interaction.reply({
-    content: "操作ボタン(**ピン止め推奨**)",
-    components: [buttons],
-  });
+    embeds: [embed],
+    components: [buttons]
+  })
 };
 
 const mentionToMember = async (members: GuildMemberGetter, mention: string) => {
@@ -357,9 +369,9 @@ const interactiveArg = async (
 
   let argInput: string | undefined = undefined;
   if (interaction.replied) {
-    await interaction.followUp({ content: msg, ephemeral: true });
+    await interaction.followUp({ content: msg });
   } else {
-    await interaction.reply({ content: msg, ephemeral: true });
+    await interaction.reply({ content: msg });
   }
   try {
     const payersCollect = await channel.awaitMessages({
@@ -417,7 +429,7 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // 支払ってもらった人の入力
-  const participantsInput: string | undefined = await interactiveArg(interaction, "今回、**建て替えを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。\n(@に続けて、Discordのユーザー名を入力してください。)");
+  const participantsInput: string | undefined = await interactiveArg(interaction, "今回、**支払いを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。\n(@に続けて、Discordのユーザー名を入力してください。)");
   if (participantsInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
