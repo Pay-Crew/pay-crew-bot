@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChatInputCommandInteraction, Client, Guild, GuildBasedChannel, GuildMember, User } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChatInputCommandInteraction, Client, Guild, GuildBasedChannel, GuildMember, User, UserSelectMenuBuilder } from "discord.js";
 import { type CmdUser, type ResultMsg } from "./command";
 
 export class GuildMemberGetter {
@@ -80,12 +80,12 @@ export const msgInButton = (interaction: ButtonInteraction<CacheType>, buttonNam
 ${msg}`
 }
 
-export const buttonSend = async (interaction: ButtonInteraction<CacheType>, buttonName: string, arg: {content: string, components?: [ActionRowBuilder<ButtonBuilder>], ephemeral?: boolean}) => {
+export const buttonSend = async (interaction: ButtonInteraction<CacheType>, buttonName: string, arg: {content: string, components?: [ActionRowBuilder<ButtonBuilder | UserSelectMenuBuilder>], ephemeral?: boolean}) => {
   const sendMsg = msgInButton(interaction, buttonName, arg.content);
   if (interaction.replied) {
-    await interaction.followUp({ content: sendMsg, components: arg.components, ephemeral: arg.ephemeral });
+    return await interaction.followUp({ content: sendMsg, components: arg.components, ephemeral: arg.ephemeral });
   } else {
-    await interaction.reply({ content: sendMsg, components: arg.components, ephemeral: arg.ephemeral });
+    return await interaction.reply({ content: sendMsg, components: arg.components, ephemeral: arg.ephemeral });
   }
 }
 

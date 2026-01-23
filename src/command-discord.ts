@@ -1,6 +1,7 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, EmbedBuilder, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, EmbedBuilder, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User, UserSelectMenuBuilder, UserSelectMenuInteraction } from "discord.js";
 import { deleteCmd, historyCmd, insertCmd, listCmd, Refund, refundCmd } from "./command";
-import { ableToInterative, buttonReplyResult, buttonSend, GuildMemberGetter, interactiveArg, mentionToMember, replyResult, transDiscordUser } from "./discord-logic";
+import { ableToInterative, buttonReplyResult, buttonSend, GuildMemberGetter, interactiveArg, mentionToMember, msgInButton, replyResult, transDiscordUser } from "./discord-logic";
+import { time } from "console";
 
 export const insertDiscordCmd = async (
   client: Client<boolean>,
@@ -391,27 +392,60 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // 支払ってもらった人の入力
-  const participantsInput: string | undefined = await interactiveArgThis("今回、**支払いを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。\n(@に続けて、Discordのユーザー名を入力してください。)");
-  if (participantsInput === undefined) {
-    await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
-    return;
-  }
-  // 一人分に分割して、メンバーか判定
-  const participantsInputSplited: string[] = participantsInput?.replace(/\s+/g, "").split(">").slice(0, -1);
-  if (participantsInputSplited.length === 0) {
-    await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
-    return;
-  }
-  const participantMembers: GuildMember[] = [];
-  for (const payer of participantsInputSplited) {
-    const member = await mentionToMember(members, `${payer}>`);
-    if (member === undefined) {
-      await interaction.followUp({ content: "存在するユーザーをメンション形式で入力してください。\n(コマンドは中断されました。)", ephemeral: true });
-      return;
-    } else {
-      participantMembers.push(member);
+  // const participantsInput: string | undefined = await interactiveArgThis("今回、**支払いを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。\n(@に続けて、Discordのユーザー名を入力してください。)");
+  // if (participantsInput === undefined) {
+  //   await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
+  //   return;
+  // }
+  // // 一人分に分割して、メンバーか判定
+  // const participantsInputSplited: string[] = participantsInput?.replace(/\s+/g, "").split(">").slice(0, -1);
+  // if (participantsInputSplited.length === 0) {
+  //   await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
+  //   return;
+  // }
+  // const participantMembers: GuildMember[] = [];
+  // for (const payer of participantsInputSplited) {
+  //   const member = await mentionToMember(members, `${payer}>`);
+  //   if (member === undefined) {
+  //     await interaction.followUp({ content: "存在するユーザーをメンション形式で入力してください。\n(コマンドは中断されました。)", ephemeral: true });
+  //     return;
+  //   } else {
+  //     participantMembers.push(member);
+  //   }
+  // }
+  // プルダウンに変更
+  const row = new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(
+    new UserSelectMenuBuilder()
+      .setCustomId('users')
+      .setPlaceholder('対象のメンバーを選んでください。')
+      .setMinValues(1)
+      .setMaxValues(10)
+  );
+  const response = await buttonSend(
+    interaction,
+    buttonName,
+    {
+      content: "今回、**支払いを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。",
+      components: [row]
     }
+  );
+  let selectInteraction: UserSelectMenuInteraction<CacheType>;
+  try {
+    selectInteraction = await response.awaitMessageComponent({
+      filter: (msg) => msg.user.id === interaction.user.id,
+      time: 180000,
+      componentType: ComponentType.UserSelect
+    });
+  } catch (e) {
+    await interaction.followUp({ content: "時間切れです。\n(コマンドは中断されました。)", ephemeral: true });
+    return;
   }
+  const participantMembers = selectInteraction.users.map((v) => v);
+  await selectInteraction.update({
+    content: `以下のユーザーが選択されました。
+${participantMembers.map((v) => v.displayName).join(", ")}`,
+    components: []
+  })
 
   // モードを入力
   const splitModeInput: string | undefined = participantMembers.length === 1 ? "1" : await interactiveArgThis("割り勘の対象となる金額を入力する場合「**わ**」を、一人あたりの金額を入力する場合は「**1**」を入力してください。");
