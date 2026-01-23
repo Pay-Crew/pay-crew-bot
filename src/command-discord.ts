@@ -653,7 +653,7 @@ export const refundDiscordInteractiveCmd = async (
   const waitButtonAction = async (refund: Refund) => {
     const send = interaction.replied ? interaction.followUp : interaction.reply;
     const response = await send.bind(interaction, {
-      content: `[現在、「精算」ボタンを${interaction.user.displayName}が実行中]
+      content: `[ 現在、「**${buttonName}**」ボタンを「**${interaction.user.displayName}**」が実行中 ]
 
 <@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
       components: [row],
@@ -694,7 +694,7 @@ export const refundDiscordInteractiveCmd = async (
 
   // メッセージ送信
   if (result.msg !== null && confirmation.buttonInteration !== undefined) {
-    result.msg = `[現在、「**${buttonName}**」ボタンを${interaction.user.displayName}が実行中]
+    result.msg = `[現在、「**${buttonName}**」ボタンを「**${interaction.user.displayName}**」が実行中]
 
 ${result.msg}`;
     await confirmation.buttonInteration.update({ content: result.msg, components: [] });
