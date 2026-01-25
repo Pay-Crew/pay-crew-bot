@@ -58,7 +58,7 @@ const commands = [
     .setDescription("支払いを合算したものを表示します"),
   // 自分に関係ある返金を表示
   new SlashCommandBuilder()
-    .setName("my-list")
+    .setName("myList")
     .setDescription("支払いを合算したもののうち、あなたに関係あるものを表示します"),
   // 返金
   new SlashCommandBuilder()

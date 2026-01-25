@@ -1,7 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, EmbedBuilder, Guild, GuildBasedChannel, GuildMember, Interaction, LabelBuilder, ModalBuilder, PartialDMChannel, TextBasedChannel, TextChannel, TextInputBuilder, TextInputStyle, User, UserSelectMenuBuilder, UserSelectMenuInteraction } from "discord.js";
 import { deleteCmd, historyCmd, insertCmd, listCmd, Refund, refundCmd } from "./command";
 import { ableToInterative, buttonReplyResult, buttonSend, GuildMemberGetter, interactiveArg, mentionToMember, msgInButton, replyResult, transDiscordUser } from "./discord-logic";
-import { time } from "console";
 
 export const insertDiscordCmd = async (
   client: Client<boolean>,
@@ -202,14 +201,10 @@ export const refundDiscordCmd = async (
     }
   };
 
-  // ユーザー名取得用
-  const members = await GuildMemberGetter.fromGuildId(client, guildId);
-
   // refundを実行
   const result = await refundCmd(
     guildId,
     waitButtonAction,
-    members.getUserNameWithFetch.bind(members),
     transDiscordUser(user1),
     transDiscordUser(user2),
   )
@@ -720,7 +715,6 @@ export const refundDiscordInteractiveCmd = async (
   const result = await refundCmd(
     guildId,
     waitButtonAction,
-    members.getUserNameWithFetch.bind(members),
     transDiscordUser(user1),
     transDiscordUser(user2),
   )
@@ -728,10 +722,10 @@ export const refundDiscordInteractiveCmd = async (
 
   // メッセージ送信
   if (result.msg !== null && confirmation.buttonInteration !== undefined) {
-    result.msg = `[現在、「**${buttonName}**」ボタンを「**${interaction.user.displayName}**」が実行中]
+    const msgWithHeader = `[現在、「**${buttonName}**」ボタンを「**${interaction.user.displayName}**」が実行中]
 
 ${result.msg}`;
-    await confirmation.buttonInteration.update({ content: result.msg, components: [] });
+    await confirmation.buttonInteration.update({ content: msgWithHeader, components: [] });
   } else {
     await buttonReplyResult(interaction, result, buttonName);
   }

@@ -8,16 +8,12 @@ import {
   refundDiscordCmd, 
   helpDiscordCmd, 
   buttonDiscordCmd, 
-  testDiscordCmd, 
   insertDiscordInteractiveCmd, 
-  deleteDiscordInteractiveCmd, 
   historyDiscordInteractiveCmd, 
-  listDiscordInteractiveCmd, 
   myListDiscordInteractiveCmd, 
   refundDiscordInteractiveCmd, 
-  helpDiscordInteractiveCmd 
 } from "./command-discord";
-import { replyResult } from "./discord-logic";
+import { getGlobalButtonNameBody, isButtonName, isCommandName, isInnerButtonName } from "./logic";
 
 //////
 
@@ -30,13 +26,6 @@ const client: Client<boolean> = new Client({
     GatewayIntentBits.GuildMembers
   ],
 });
-
-// チャンネルIDはdiscordのチャンネルの部分を右クリックすると入手できる
-// ギルドというのがサーバー
-// 試験用サーバーの情報
-const CHANNEL_ID: string = "1446799876917694598";
-// const GUILD_ID: string | undefined = process.env.GUILD_ID;
-// assert(GUILD_ID !== undefined);
 
 async function sendMessage(channelId: string, message: string) {
   const channel: Channel | null = await client.channels.fetch(channelId);
@@ -60,70 +49,83 @@ async function sendMessage(channelId: string, message: string) {
 // client.onceは条件に当てはまったら一度だけ実行される
 client.once(Events.ClientReady, async (c) => {
   console.log(`準備完了！ ${c.user.tag} としてログインしました。`);
-  // ログイン時に1度だけメッセージを送れる
-  // sendMessage(CHANNEL_ID, "yeah!");
-  // メンバーを取得
-  // if (GUILD_ID !== undefined) {
-  //   const guild = await client.guilds.fetch(GUILD_ID);
-  //   await guild.members.fetch();
-  // }
 });
 
-// client.onは条件に当てはまるたびに実行される
-// client.on(Events.MessageCreate, async (message) => {
-//   if (message.author.bot) return;
-//   if (message.content === "Pong!") {
-//     await message.reply("Pong!");
-//   }
-// });
-
-// コマンドの処理
+// コマンドとボタンの処理
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand() && !interaction.isButton()) {
-    return;
-  }
+  // コマンドの場合
   if (interaction.isChatInputCommand()) {
-    // コマンド名で分岐
-    if (interaction.commandName === "insert") {
-      await insertDiscordCmd(client, interaction);
-    } else if (interaction.commandName === "delete") {
-      await deleteDiscordCmd(client, interaction);
-    } else if (interaction.commandName === "history") {
-      await historyDiscordCmd(client, interaction);
-    } else if (interaction.commandName === "list") {
-      await listDiscordCmd(client, interaction)
-    } else if (interaction.commandName === "my-list") {
-      await myListDiscordCmd(client, interaction)
-    } else if (interaction.commandName === "refund") {
-      await refundDiscordCmd(client, interaction)
-    } else if (interaction.commandName === "help") {
-      await helpDiscordCmd(client, interaction)
-    } else if (interaction.commandName === "button") {
-      await buttonDiscordCmd(client, interaction)
-    } else if (interaction.commandName === "test") {
-      await testDiscordCmd(client, interaction)
-    } else {
-      throw new Error("Unknown command")
-    }
-  } else if (interaction.isButton()) {
-    if (interaction.customId.slice(0, 7) == "__inner") {
+    // コマンド名を取得
+    const commandName = interaction.commandName;
+    // 定義されているコマンドが確認(logic.tsで定義)
+    if (!isCommandName(commandName)) {
+      console.log(`Warning: Unknown command "${commandName}"
+`);
       return;
-    } else if (interaction.customId === "insert") {
-      await insertDiscordInteractiveCmd(client, interaction);
-    } else if (interaction.customId === "delete") {
-      await deleteDiscordInteractiveCmd(client, interaction);
-    } else if (interaction.customId === "history") {
-      await historyDiscordInteractiveCmd(client, interaction);
-    } else if (interaction.customId === "list") {
-      await listDiscordInteractiveCmd(client, interaction);
-    } else if (interaction.customId === "my-list") {
-      await myListDiscordInteractiveCmd(client, interaction);
-    } else if (interaction.customId === "refund") {
-      await refundDiscordInteractiveCmd(client, interaction);
-    } else if (interaction.customId === "help") {
-      await helpDiscordInteractiveCmd(client, interaction);
-    } else {
-      throw new Error("Unknown button")
+    };
+    // コマンド名で場合分け
+    switch (commandName) {
+      case "insert":
+        await insertDiscordCmd(client, interaction);
+        break;
+      case "delete":
+        await deleteDiscordCmd(client, interaction);
+        break;
+      case "history":
+        await historyDiscordCmd(client, interaction);
+        break;
+      case "list":
+        await listDiscordCmd(client, interaction);
+        break;
+      case "myList":
+        await myListDiscordCmd(client, interaction);
+        break;
+      case "refund":
+        await refundDiscordCmd(client, interaction);
+        break;
+      case "help":
+        await helpDiscordCmd(client, interaction);
+        break;
+      case "button":
+        await buttonDiscordCmd(client, interaction);
+        break;
+      default:
+        console.log(`Warning: Unknown command "${commandName}", but this is command name.
+`);
+        break
+    }
+  // ボタンの場合
+  } else if (interaction.isButton()) {
+    // ボタンに設定したボタン名(customId)を取得
+    const buttonName = interaction.customId;
+    // 定義されたボタン名か確認
+    if (!isButtonName(buttonName)) {
+      console.log(`Warning: Unknown button "${buttonName}"
+`);
+      return;
+    };
+    // 各コマンド内で使われるボタンの場合
+    if (isInnerButtonName(buttonName)) {
+      console.log(`Info: "${buttonName}" button is selected.
+`);
+      return;
+    }
+    // ボタン名の本体を取得
+    const buttonNameBody = getGlobalButtonNameBody(buttonName);
+    // ボタン名の本体で場合分け
+    switch (buttonNameBody) {
+      case "insert":
+        await insertDiscordInteractiveCmd(client, interaction);
+        break; 
+      case "history":
+        await historyDiscordInteractiveCmd(client, interaction);
+        break; 
+      case "myList":
+        await myListDiscordInteractiveCmd(client, interaction);
+        break; 
+      case "refund":
+        await refundDiscordInteractiveCmd(client, interaction);
+        break; 
     }
   }
 });

@@ -1,4 +1,4 @@
-// コマンドの処理(discordに依存しない部分)
+// discordなど媒体に依存しない、このアプリの中核部分の処理となるコマンド群
 
 import {
   Transaction,
@@ -7,24 +7,70 @@ import {
 } from "./transaction";
 import { dateToString, equalWidthFormat } from "./format";
 
-export class ResultMsg {
-  public isOk: boolean;
-  public msg: string | null;
+// コマンドの結果を表す型
+// ここで定義されるコマンドは、この型を返す
+export class ResultMsgOption<T> {
+  private _isOk: boolean;
+  private _msg: string | null;
+  private _option: T;
 
-  constructor(isOk: boolean, msg: string | null) {
-    this.isOk = isOk;
-    this.msg = msg;
+  constructor(isOk: boolean, msg: string | null, option: T) {
+    this._isOk = isOk;
+    this._msg = msg;
+    this._option = option;
   }
 
-  public static okMsg(msg?: string) {
-    return new ResultMsg(true, msg === undefined ? null : msg)
+  public static okMsgOption<T>(option: T, msg?: string) {
+    return new ResultMsgOption<T>(
+      true, 
+      msg === undefined ? null : msg, 
+      option,
+    )
   }
 
-  public static  errMsg(msg?: string) {
-    return new ResultMsg(false, msg === undefined ? null : msg)
+  public static errMsgOption<T>(option: T, msg?: string) {
+    return new ResultMsgOption<T>(
+      false, 
+      msg === undefined ? null : msg,
+      option
+    )
+  }
+
+  public get isOk(): boolean {
+    return this._isOk;
+  }
+
+  public get msg(): string | null {
+    return this._msg;
+  }
+
+  public get option(): T {
+    return this._option;
   }
 }
 
+// コマンドの結果を表す型(追加の返り値: なし)
+export class ResultMsg extends ResultMsgOption<null> {
+  constructor(isOk: boolean, msg: string | null) {
+    super(isOk, msg, null);
+  }
+
+  public static okMsg(msg?: string) {
+    return new ResultMsg(
+      true, 
+      msg === undefined ? null : msg
+    )
+  }
+
+  public static errMsg(msg?: string) {
+    return new ResultMsg(
+      false, 
+      msg === undefined ? null : msg
+    )
+  }
+}
+
+// 汎用的に(discordなどに依存せずに)ユーザーを表す型
 export type CmdUser = {
   id: string,
   name: string
@@ -34,6 +80,8 @@ export type CmdUser = {
 export const insertCmd = (
   // グループのid(discordの場合はguildId)
   groupId: string,
+  // 追加するデータ
+  // participantとpayerが同じデータは、実際には追加されない
   datas: {
     // 建て替えてもらった人
     participant: CmdUser,
@@ -54,6 +102,7 @@ export const insertCmd = (
     return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
+  // 追加するデータ一覧
   const newDatas: {
     participant: string,
     payer: string,
@@ -62,7 +111,10 @@ export const insertCmd = (
     date: Date
   }[] = [];
 
+  // 追加するデータの形に変形
+  const now = new Date();
   for (const data of datas) {
+    // participantとpayerが同じデータは、追加しない
     if (data.participant.id === data.payer.id) {
       continue;
     }
@@ -72,30 +124,35 @@ export const insertCmd = (
       payer: data.payer.id,
       amount: data.amount,
       memo: data.title,
-      date: new Date()
+      date: now
     };
+    // 追加したデータ一覧に追加
     newDatas.push(newData);
+    // データに追加
     transactions.push(newData);
   }
 
+  // datasの長さが0の場合、すべてのデータでparticipantとpayerが同じ場合
   if (newDatas.length === 0) {
-    return ResultMsg.errMsg("同一人物間の支払いだったため、追加されませんでした。")
+    return ResultMsg.errMsg("追加するデータはありませんでした。")
   }
 
   // データを書き込み
   writeTransactions(groupId, transactions);
 
+  // コンソールに出力
   console.log(`Info: Succeed in inserting the data below.
 \tgroupId: ${groupId}
-\t${
+
+${
   newDatas
-    .map((newData) => (`participant: ${newData.participant}
+    .map((newData) => (`\tparticipant: ${newData.participant}
 \tpayer: ${newData.payer}
 \tamount: ${newData.amount}
 \tmemo: ${newData.memo}
 \tdate: ${newData.date}
 `))
-    .join("\n\t")
+    .join("\n")
 }
 `);
 
@@ -104,12 +161,12 @@ export const insertCmd = (
 \t${
   datas
     .filter((data) => data.participant.id !== data.payer.id)
-    .map((data) => (`返金する人: ${data.participant.name}
+    .map((data) => (`\t返金する人: ${data.participant.name}
 \t払った人: ${data.payer.name}
 \t金額: ${data.amount}
 \tタイトル: ${data.title}
 `))
-    .join("\n\t")
+    .join("\n")
 }
 `;
   return ResultMsg.okMsg(replyText);
@@ -121,7 +178,7 @@ export const deleteCmd = async (
   groupId: string,
   // ユーザー名を取得する関数
   getUserName: (id: string) => Promise<string>,
-  // 削除したい支払いのid(1-indexで算出したもの)
+  // 削除したい支払いのindex(1-indexで算出したもの)
   id: number,
 ): Promise<ResultMsg> => {
   // グループのIDからデータ取得
@@ -149,6 +206,7 @@ export const deleteCmd = async (
   // 削除後のデータを書き込み
   writeTransactions(groupId, transactions);
 
+  // コンソールに出力
   console.log(`Info: Succeed in deleting the data below
 \tgroupId: ${groupId}
 \tparticipant: ${deletedItem.participant}
@@ -159,15 +217,11 @@ export const deleteCmd = async (
 `)
 
   // メッセージ作成
-  const replyText: string = `以下の支払いを削除しました。(他の項目のidが変更されている場合があります。)\n\t返金する人: ${
-    await getUserName(deletedItem.participant)
-  }\n\t払った人: ${
-    await getUserName(deletedItem.payer)
-  }\n\t金額: ${
-    deletedItem.amount
-  }\n\tタイトル: ${
-    deletedItem.memo
-  }`;
+  const replyText: string = `以下の支払いを削除しました。(他の項目のidが変更されている場合があります。)
+\t返金する人: ${await getUserName(deletedItem.participant)}
+\t払った人: ${await getUserName(deletedItem.payer)}
+\t金額: ${deletedItem.amount}
+\tタイトル: ${deletedItem.memo}`;
   return ResultMsg.okMsg(replyText);
 }
 
@@ -178,7 +232,7 @@ export const historyCmd = async (
   // ユーザー名を取得する関数
   getUserName: (id: string) => Promise<string>,
   // 表示件数
-  count?: number | undefined,
+  count: number = 10,
   // 検索したいユーザー1
   user1?: CmdUser | undefined,
   // 検索したいユーザー2
@@ -193,29 +247,28 @@ export const historyCmd = async (
     return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
-  // 引数の受け取り
-  const countNonNullable: number = count === undefined ? 10 : count;
-
   // Userで検索
   type TransactionWithIndex = {i: number, transaction: Transaction};
   const transactionsFiltered: TransactionWithIndex[] = transactions
     // 1つずらしたindexを保持
     .map((transaction, i) => ({ i: i + 1, transaction }))
-    .filter(({i, transaction}) => (
+    .filter(({transaction}) => (
       (user1 === undefined || transaction.payer === user1.id || transaction.participant === user1.id) &&
       (user2 === undefined || transaction.payer === user2.id || transaction.participant === user2.id)
     ));
 
   // 表示個数
-  const showCount: number = transactions.length >= countNonNullable
-    ? countNonNullable
+  const showCount: number = transactions.length >= count
+    ? count
     : transactions.length;
   
-  console.log(`Info: Succeed in show the historys.
+  // コンソールに出力
+  console.log(`Info: Succeed in make the historys message.
 \tgroupId: ${groupId}
 `)
 
   // メッセージ作成
+  // メッセージのヘッダ
   const replyTexts: string[] = [
     `[${
         equalWidthFormat("id", 3, {widthRate: {narrow: 3, wide: 5}})
@@ -234,7 +287,7 @@ export const historyCmd = async (
   for (const { i, transaction } of transactionsFiltered
     .reverse()
     .slice(0, showCount)) {
-    // idからmemberを取得
+    // idから名前を取得
     const participantName = await getUserName(transaction.participant);
     const payerName = await getUserName(transaction.payer);
     // 日付をstringに変換
@@ -263,71 +316,7 @@ export const historyCmd = async (
 
 export type Refund = { from: string; to: string; amount: number };
 
-// // ★変更: 引数で guildId を受け取るように変更
-// const getRefundList = (guildId: string): Refund[] | null => {
-//   // ★変更
-//   const transactions: Transaction[] | null = readTransactions(guildId);
-
-//   if (transactions === null) {
-//     return null;
-//   }
-
-//   const memberAmounts: Map<string, number> = new Map<string, number>();
-//   for (const transaction of transactions) {
-//     const payerAmount = memberAmounts.get(transaction.payer);
-//     memberAmounts.set(
-//       transaction.payer,
-//       (payerAmount === undefined ? 0 : payerAmount) + transaction.amount
-//     );
-
-//     const participantAmount = memberAmounts.get(transaction.participant);
-//     memberAmounts.set(
-//       transaction.participant,
-//       (participantAmount === undefined ? 0 : participantAmount) -
-//         transaction.amount
-//     );
-//   }
-
-//   type MemberAmount = { member: string; amount: number };
-//   const positiveMembers: MemberAmount[] = [];
-//   const negativeMembers: MemberAmount[] = [];
-//   memberAmounts.forEach((v, k) => {
-//     if (v > 0) {
-//       positiveMembers.push({ member: k, amount: v });
-//     } else if (v < 0) {
-//       negativeMembers.push({ member: k, amount: v });
-//     }
-//   });
-//   positiveMembers.sort((a, b) => b.amount - a.amount);
-//   negativeMembers.sort((a, b) => b.amount - a.amount);
-
-//   const refunds: Refund[] = [];
-//   let pIndex = 0;
-//   let nIndex = 0;
-//   while (pIndex < positiveMembers.length && nIndex < negativeMembers.length) {
-//     if (positiveMembers[pIndex].amount >= -negativeMembers[nIndex].amount) {
-//       refunds.push({
-//         from: negativeMembers[nIndex].member,
-//         to: positiveMembers[pIndex].member,
-//         amount: -negativeMembers[nIndex].amount,
-//       });
-//       positiveMembers[pIndex].amount -= negativeMembers[nIndex].amount;
-//       negativeMembers[nIndex].amount = 0;
-//       nIndex += 1;
-//     } else {
-//       refunds.push({
-//         from: negativeMembers[nIndex].member,
-//         to: positiveMembers[pIndex].member,
-//         amount: positiveMembers[pIndex].amount,
-//       });
-//       positiveMembers[pIndex].amount = 0;
-//       negativeMembers[nIndex].amount -= positiveMembers[pIndex].amount;
-//       pIndex += 1;
-//     }
-//   }
-//   return refunds;
-// };
-
+// 合算した一覧
 // 簡易相殺版
 const getRefundList = (guildId: string): Refund[] | null => {
   // データの取得
@@ -336,52 +325,58 @@ const getRefundList = (guildId: string): Refund[] | null => {
     return null;
   }
 
-  // participantIdとpayerIdからrefundsMap用のkeyを生成
+  // participantIdとpayerIdからrefundsMap用のkeyを生成する関数
   const getKey = (participantId: string, payerId: string): string => {
     return `${participantId}>${payerId}`
   }
 
-  // 有向グラフとして集約
-  const refundsMap: Map<string, number> = new Map<string, number>();
+  // 支払いの向きを区別して集約
+  const refundsMap: Map<string, {amount: number, counted: boolean}> = new Map<string, {amount: number, counted: boolean}>();
   for (const transaction of transactions) {
-    const tmpAmount = refundsMap.get(getKey(transaction.participant, transaction.payer));
+    const mapAmount = refundsMap.get(getKey(transaction.participant, transaction.payer))?.amount;
     refundsMap.set(
       getKey(transaction.participant, transaction.payer),
-      transaction.amount + (tmpAmount === undefined ? 0 : tmpAmount)
+      {amount: transaction.amount + (mapAmount === undefined ? 0 : mapAmount), counted: false},
     )
   }
 
   // 2つの方向を相殺しながらArrayにする
-  const refundsAlready: Set<string> = new Set();
   const refunds: Refund[] = [];
-  for (const [key, amount] of refundsMap) {
+  for (const [key, {amount, counted}] of refundsMap) {
     // keyからparticipantIdとpayerIdを取得、逆向きの支払いのkeyを取得
     const [participantId, payerId]: string[] = key.split(">");
     const reverseKey: string = getKey(payerId, participantId);
     
     // 逆向きをすでに処理していたら飛ばす
-    if (refundsAlready.has(reverseKey)) {
+    if (counted) {
       continue;
     }
-    refundsAlready.add(key);
 
     // 逆向きの支払いの金額を取得、相殺
-    const reverseAmount: number | undefined = refundsMap.get(reverseKey);
-    if (reverseAmount !== undefined && amount === reverseAmount) {
-      continue;
-    }
-    if (reverseAmount === undefined || amount > reverseAmount) {
+    const reverseData: {amount: number, counted: boolean} | undefined = refundsMap.get(reverseKey);
+    if (reverseData === undefined) {
       refunds.push({
         from: participantId,
         to: payerId,
-        amount: amount - (reverseAmount === undefined ? 0 : reverseAmount)
+        amount: amount
       });
     } else {
-      refunds.push({
-        from: payerId,
-        to: participantId,
-        amount: reverseAmount - amount
-      });
+      reverseData.counted = true;
+      if (reverseData.amount < amount) {
+        refunds.push({
+          from: participantId,
+          to: payerId,
+          amount: amount - reverseData.amount
+        });
+      } else if (reverseData.amount === amount) {
+        // nothing
+      } else {
+        refunds.push({
+          from: payerId,
+          to: participantId,
+          amount: reverseData.amount - amount
+        });
+      }
     }
   }
   return refunds;
@@ -405,10 +400,12 @@ export const listCmd = async (
     return ResultMsg.errMsg("データ読み込みの際にエラーが発生しました。");
   }
 
-  console.log(`Info: Succeed in show the my-list.
+  // コンソールに出力
+  console.log(`Info: Succeed in make the list message.
 \tgroupId: ${groupId}
 `)
 
+  // メッセージ作成
   const replyTexts: string[] = [];
   for (const { from, to, amount } of refunds) {
     if (user !== undefined && from !== user && to !== user) {
@@ -436,8 +433,6 @@ export const refundCmd = async (
   groupId: string, 
   // 精算するかどうかの確認をする関数
   ask: (refund: Refund) => Promise<boolean>,
-  // ユーザー名を取得する関数
-  getUserName: (id: string) => Promise<string>,
   // 精算するユーザー1
   user1: CmdUser,
   // 精算するユーザー2
@@ -453,16 +448,21 @@ export const refundCmd = async (
   }
 
   // 該当するペアのデータを参照
-  const targetRefund: Refund | undefined = refunds.find((r) => (r.from === user1.id && r.to === user2.id) || (r.from === user2.id && r.to === user1.id));
-  if (targetRefund === undefined || targetRefund.amount === 0) {
-    console.log(`Info: There is no refund.
-\tgorupId: ${groupId}
-`);
-    return ResultMsg.errMsg("該当する返金データが見つかりませんでした。");
+  let user1IsFromUser = true;
+  let targetRefund: Refund | undefined = refunds.find((r) => (r.from === user1.id && r.to === user2.id));
+  if (targetRefund === undefined) {
+    user1IsFromUser = false;
+    targetRefund = refunds.find((r) => (r.from === user2.id && r.to === user1.id));
+    if (targetRefund === undefined || targetRefund.amount === 0) {
+      console.log(`Info: There is no refund.
+  \tgorupId: ${groupId}
+  `);
+      return ResultMsg.errMsg("該当する返金データが見つかりませんでした。");
+    }
   }
   const {from, to, amount}: Refund = targetRefund;
 
-  // 待機
+  // 実際に返金するかの返信を待機
   const askResult = await ask(targetRefund);
   if (!askResult) {
     console.log(`Info: Canceled the refund.
@@ -493,14 +493,16 @@ export const refundCmd = async (
   // 書き込み
   writeTransactions(groupId, transactions);
 
+  // コンソールに出力
   console.log(`Info: Succeed in refunding.
 \tgorupId: ${groupId}
 `);
 
+  // メッセージ作成
   return ResultMsg.okMsg(`返金を記録しました：${
-    await getUserName(from)
+    user1IsFromUser ? user1 : user2
   } ---> ${
-    await getUserName(to)
+    user1IsFromUser ? user2 : user1
   } (${
     amount
   }円)`)
