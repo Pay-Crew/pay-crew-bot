@@ -500,9 +500,9 @@ export const refundCmd = async (
 
   // メッセージ作成
   return ResultMsg.okMsg(`返金を記録しました：${
-    user1IsFromUser ? user1 : user2
+    user1IsFromUser ? user1.name : user2.name
   } ---> ${
-    user1IsFromUser ? user2 : user1
+    user1IsFromUser ? user2.name : user1.name
   } (${
     amount
   }円)`)
