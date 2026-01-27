@@ -1,7 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChatInputCommandInteraction, Client, ComponentType, EmbedBuilder, GuildMember, User, UserSelectMenuBuilder, UserSelectMenuInteraction } from "discord.js";
 import { deleteCmd, historyCmd, insertCmd, listCmd, Refund, refundCmd } from "./command";
-import { ableToInterative, buttonReplyResult, buttonSend, GuildMemberGetter, interactiveArg, mentionToMember, msgInButton, replyResult, transDiscordUser } from "./discord-logic";
+import { ableToInterative, cbReplyResult, cbSend, GuildMemberGetter, interactiveArg, mentionToMember, transDiscordUser } from "./discord-logic";
 
+// insertコマンド実行時に呼ばれる
 export const insertDiscordCmd = async (
   client: Client<boolean>,
   interaction: ChatInputCommandInteraction<CacheType>
@@ -31,7 +32,7 @@ export const insertDiscordCmd = async (
   );
 
   // メッセージ送信
-  replyResult(interaction, result)
+  await cbReplyResult(interaction, result)
 };
 
 export const deleteDiscordCmd = async (
@@ -59,7 +60,7 @@ export const deleteDiscordCmd = async (
   )
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await cbReplyResult(interaction, result);
 };
 
 export const historyDiscordCmd = async (
@@ -91,7 +92,7 @@ export const historyDiscordCmd = async (
   )
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await cbReplyResult(interaction, result);
 };
 
 export const listDiscordCmd = async (
@@ -115,7 +116,7 @@ export const listDiscordCmd = async (
   );
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await cbReplyResult(interaction, result);
 };
 
 export const myListDiscordCmd = async (
@@ -140,7 +141,7 @@ export const myListDiscordCmd = async (
   );
 
   // メッセージ送信
-  replyResult(interaction, result);
+  await cbReplyResult(interaction, result);
 };
 
 export const refundDiscordCmd = async (
@@ -161,11 +162,11 @@ export const refundDiscordCmd = async (
   // ボタンの作成
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId("__innerDoRefund")
+      .setCustomId("__inner_doRefund")
       .setLabel("返金する")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId("__innerCancelRefund")
+      .setCustomId("__inner_cancelRefund")
       .setLabel("やっぱしない")
       .setStyle(ButtonStyle.Secondary)
   );
@@ -173,7 +174,7 @@ export const refundDiscordCmd = async (
   const confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
   // ボタン操作を待つ関数
   const waitButtonAction = async (refund: Refund) => {
-    const response = await interaction.reply({
+    const response = await cbSend(interaction, {
       content: `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
       components: [row],
     });
@@ -190,7 +191,7 @@ export const refundDiscordCmd = async (
       });
       return false;
     }
-    if (confirmation.buttonInteration.customId === "__innerDoRefund") {
+    if (confirmation.buttonInteration.customId === "__inner_doRefund") {
       return true;
     } else {
       await confirmation.buttonInteration.update({
@@ -214,7 +215,7 @@ export const refundDiscordCmd = async (
   if (result.msg !== null && confirmation.buttonInteration !== undefined) {
     await confirmation.buttonInteration.update({ content: result.msg, components: [] });
   } else {
-    replyResult(interaction, result);
+    await cbReplyResult(interaction, result);
   }
 };
 
@@ -307,7 +308,7 @@ export const helpDiscordCmd = async (
   const commandName = interaction.options.getString("コマンド名");
 
   const result = getHelp(commandName);
-  await interaction.reply({ content: result })
+  await cbSend(interaction, { content: result });
 };
 
 export const buttonDiscordCmd = async (
@@ -326,25 +327,26 @@ export const buttonDiscordCmd = async (
     .setColor(0x0099ff);
   const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId("insert")
+      .setCustomId("__global_insert")
       .setLabel("支払いの追加")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId("history")
+      .setCustomId("__global_history")
       .setLabel("支払いの一覧表示")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId("my-list")
+      .setCustomId("__global_my-list")
       .setLabel("合算した自分の支払いの一覧表示")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId("refund")
+      .setCustomId("__global_refund")
       .setLabel("精算")
       .setStyle(ButtonStyle.Success),
   );
-  await interaction.reply({
+  await cbSend(interaction, {
+    content: "ボタンを表示します",
     embeds: [embed],
-    components: [buttons]
+    components: [buttons],
   })
 };
 
@@ -387,27 +389,6 @@ export const insertDiscordInteractiveCmd = async (
   }
 
   // 支払ってもらった人の入力
-  // const participantsInput: string | undefined = await interactiveArgThis("今回、**支払いを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。\n(@に続けて、Discordのユーザー名を入力してください。)");
-  // if (participantsInput === undefined) {
-  //   await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
-  //   return;
-  // }
-  // // 一人分に分割して、メンバーか判定
-  // const participantsInputSplited: string[] = participantsInput?.replace(/\s+/g, "").split(">").slice(0, -1);
-  // if (participantsInputSplited.length === 0) {
-  //   await interaction.followUp({ content: "存在するユーザーをメンション形式で1人入力してください。\n(コマンドは中断されました。)", ephemeral: true });
-  //   return;
-  // }
-  // const participantMembers: GuildMember[] = [];
-  // for (const payer of participantsInputSplited) {
-  //   const member = await mentionToMember(members, `${payer}>`);
-  //   if (member === undefined) {
-  //     await interaction.followUp({ content: "存在するユーザーをメンション形式で入力してください。\n(コマンドは中断されました。)", ephemeral: true });
-  //     return;
-  //   } else {
-  //     participantMembers.push(member);
-  //   }
-  // }
   // プルダウンに変更
   const row = new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(
     new UserSelectMenuBuilder()
@@ -416,13 +397,13 @@ export const insertDiscordInteractiveCmd = async (
       .setMinValues(1)
       .setMaxValues(10)
   );
-  const response = await buttonSend(
+  const response = await cbSend(
     interaction,
-    buttonName,
     {
       content: "今回、**支払いを受けた人**を、メンションで入力してください。複数人入力できます。\n払った人を割り勘に加える場合は、払った人も入力してください。",
       components: [row]
-    }
+    },
+    buttonName,
   );
   let selectInteraction: UserSelectMenuInteraction<CacheType>;
   try {
@@ -483,7 +464,7 @@ ${participantMembers.map((v) => v.displayName).join(", ")}`,
   );
 
   // メッセージ送信
-  await buttonReplyResult(interaction, result, buttonName);
+  await cbReplyResult(interaction, result, buttonName);
 };
 
 export const deleteDiscordInteractiveCmd = async (
@@ -538,7 +519,7 @@ export const deleteDiscordInteractiveCmd = async (
   const result = await deleteCmd(guildId, members.getUserNameWithFetch.bind(members), index);
 
   // メッセージ送信
-  await buttonReplyResult(interaction, result, buttonName);
+  await cbReplyResult(interaction, result, buttonName);
 };
 
 export const historyDiscordInteractiveCmd = async (
@@ -564,7 +545,7 @@ export const historyDiscordInteractiveCmd = async (
   )
 
   // メッセージ送信
-  await buttonReplyResult(interaction, result, buttonName)
+  await cbReplyResult(interaction, result, buttonName)
 };
 
 export const listDiscordInteractiveCmd = async (
@@ -590,7 +571,7 @@ export const listDiscordInteractiveCmd = async (
   );
 
   // メッセージ送信
-  await buttonReplyResult(interaction, result, buttonName);
+  await cbReplyResult(interaction, result, buttonName);
 };
 
 export const myListDiscordInteractiveCmd = async (
@@ -617,7 +598,7 @@ export const myListDiscordInteractiveCmd = async (
   );
 
   // メッセージ送信
-  await buttonReplyResult(interaction, result, buttonName);
+  await cbReplyResult(interaction, result, buttonName);
 };
 
 export const refundDiscordInteractiveCmd = async (
@@ -672,7 +653,7 @@ export const refundDiscordInteractiveCmd = async (
       .setLabel("返金する")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId("__innerCancelRefund")
+      .setCustomId("__inner_cancelRefund")
       .setLabel("やっぱしない")
       .setStyle(ButtonStyle.Secondary)
   );
@@ -680,11 +661,10 @@ export const refundDiscordInteractiveCmd = async (
   const confirmation: {buttonInteration: ButtonInteraction<CacheType> | undefined} = {buttonInteration: undefined};
   // ボタン操作を待つ関数
   const waitButtonAction = async (refund: Refund) => {
-    const send = interaction.replied ? interaction.followUp : interaction.reply;
-    const response = await send.bind(interaction, {
-      content: msgInButton(interaction, buttonName, `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`),
+    const response = await cbSend(interaction, {
+      content: `<@${refund.from}> から <@${refund.to}> へ ${refund.amount}円 返金しますか？`,
       components: [row],
-    })();
+    }, buttonName);
     try {
       confirmation.buttonInteration = await response.awaitMessageComponent({
         filter: (i) => i.user.id === interaction.user.id,
@@ -717,13 +697,11 @@ export const refundDiscordInteractiveCmd = async (
     transDiscordUser(user2),
   )
 
-
   // メッセージ送信
   if (result.msg !== null && confirmation.buttonInteration !== undefined) {
-    const msgWithHeader = msgInButton(interaction, buttonName, result.msg);
-    await confirmation.buttonInteration.update({ content: msgWithHeader, components: [] });
+    await confirmation.buttonInteration.update({ content: result. msg, components: [] });
   } else {
-    await buttonReplyResult(interaction, result, buttonName);
+    await cbReplyResult(interaction, result, buttonName);
   }
 };
 
@@ -733,12 +711,5 @@ export const helpDiscordInteractiveCmd = async (
 ) => {
   const buttonName = "ヘルプ"
   const result = getHelp(null);
-  await buttonSend(interaction, buttonName, { content: result })
-};
-
-export const testDiscordCmd = async (
-  client: Client<boolean>,
-  interaction: ChatInputCommandInteraction<CacheType>
-) => {
-
+  await cbSend(interaction, { content: result }, buttonName)
 };

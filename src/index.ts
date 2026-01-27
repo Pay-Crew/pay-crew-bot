@@ -59,7 +59,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const commandName = interaction.commandName;
     // 定義されているコマンドが確認(logic.tsで定義)
     if (!isCommandName(commandName)) {
-      console.log(`Warning: Unknown command "${commandName}"
+      console.warn(`Warning: Unknown command "${commandName}"
 `);
       return;
     };
@@ -90,7 +90,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await buttonDiscordCmd(client, interaction);
         break;
       default:
-        console.log(`Warning: Unknown command "${commandName}", but this is command name.
+        console.warn(`Warning: Unknown command "${commandName}", but this is command name.
 `);
         break
     }
@@ -100,13 +100,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const buttonName = interaction.customId;
     // 定義されたボタン名か確認
     if (!isButtonName(buttonName)) {
-      console.log(`Warning: Unknown button "${buttonName}"
+      console.warn(`Warning: Unknown button "${buttonName}"
 `);
       return;
     };
     // 各コマンド内で使われるボタンの場合
     if (isInnerButtonName(buttonName)) {
-      console.log(`Info: "${buttonName}" button is selected.
+      console.info(`Info: "${buttonName}" button is selected.
 `);
       return;
     }
