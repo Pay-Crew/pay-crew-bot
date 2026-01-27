@@ -11,7 +11,9 @@ import {
   insertDiscordInteractiveCmd, 
   historyDiscordInteractiveCmd, 
   myListDiscordInteractiveCmd, 
-  refundDiscordInteractiveCmd, 
+  refundDiscordInteractiveCmd,
+  getHelp,
+  buttonReplyOptions, 
 } from "./command-discord";
 import { getGlobalButtonNameBody, isButtonName, isCommandName, isInnerButtonName } from "./logic";
 
@@ -23,7 +25,7 @@ const client: Client<boolean> = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
   ],
 });
 
@@ -50,6 +52,32 @@ async function sendMessage(channelId: string, message: string) {
 client.once(Events.ClientReady, async (c) => {
   console.log(`準備完了！ ${c.user.tag} としてログインしました。`);
 });
+
+client.on(Events.GuildCreate, async (guild) => {
+  if (guild.members.me?.permissions.has("ManageChannels")) {
+    const channel = await guild.channels.create({ name: "pay-crew-bot", type: 0 });
+    await channel.send(`# pay-crew-botを導入していただきありがとうございます！
+個人間の貸し借りの登録・削除・返金をサポートします。
+本プロダクトは「筑波大学enPiT2025」の中で制作されたものです。
+本プロダクトの利用により生じたユーザー間のトラブルについて、開発メンバーは一切の責任を負いません。
+# botをいつ使うのか？
+このdiscordサーバーのメンバーで食事に行った時、遊びに行った時、もし誰かがまとめて支払ったなら、それはこのBotを使うタイミングです。
+その支払いを追加しておき、次に会うときまで返金を持ち越したり、他の支払いと相殺したりすることができます。
+# botをどう使うのか？
+スラッシュコマンドまたはボタンにて使用することができます。
+それぞれ、このチャンネル以外でも使用することができます。このチャンネルは削除していただいても構いません。
+スラッシュコマンドの使い方は以下のとおりです。
+================================================================================
+${getHelp(null)}
+================================================================================
+スラッシュコマンドが苦手は人は、ボタンで操作することができます。ボタンを押すと、対話形式で必要項目を入力できます。
+`)
+    await channel.send(buttonReplyOptions());
+  }
+  console.info(`新たなサーバーに追加されました。
+\tguildId: ${guild.id}
+`);
+})
 
 // コマンドとボタンの処理
 client.on(Events.InteractionCreate, async (interaction) => {

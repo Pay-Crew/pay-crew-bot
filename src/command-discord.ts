@@ -224,7 +224,7 @@ type Help = {
   detail: string,
 }
 
-const getHelp = (commandName: string | null) => {
+export const getHelp = (commandName: string | null) => {
   const commandList: string[] = [
     "button",
     "insert",
@@ -311,10 +311,7 @@ export const helpDiscordCmd = async (
   await cbSend(interaction, { content: result });
 };
 
-export const buttonDiscordCmd = async (
-  client: Client<boolean>,
-  interaction: ChatInputCommandInteraction<CacheType>
-) => {
+export const buttonReplyOptions = () => {
   const embed = new EmbedBuilder()
     .setTitle('機能メニュー')
     .setDescription('以下のボタンから操作を選択してください。')
@@ -343,11 +340,18 @@ export const buttonDiscordCmd = async (
       .setLabel("精算")
       .setStyle(ButtonStyle.Success),
   );
-  await cbSend(interaction, {
-    content: "ボタンを表示します",
+  return {
+    content: "操作ボタン",
     embeds: [embed],
     components: [buttons],
-  })
+  };
+}
+
+export const buttonDiscordCmd = async (
+  client: Client<boolean>,
+  interaction: ChatInputCommandInteraction<CacheType>
+) => {
+  await cbSend(interaction, buttonReplyOptions())
 };
 
 export const insertDiscordInteractiveCmd = async (
@@ -649,7 +653,7 @@ export const refundDiscordInteractiveCmd = async (
   // ボタンの作成
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId("__innerDoRefund")
+      .setCustomId("__inner_doRefund")
       .setLabel("返金する")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
@@ -678,7 +682,7 @@ export const refundDiscordInteractiveCmd = async (
       });
       return false;
     }
-    if (confirmation.buttonInteration.customId === "__innerDoRefund") {
+    if (confirmation.buttonInteration.customId === "__inner_doRefund") {
       return true;
     } else {
       await confirmation.buttonInteration.update({
