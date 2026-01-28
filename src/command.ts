@@ -460,6 +460,12 @@ export const refundCmd = async (
       return ResultMsg.errMsg("該当する返金データが見つかりませんでした。");
     }
   }
+  if (targetRefund.amount === 0) {
+    console.info(`Info: There is no refund.
+\tgorupId: ${groupId}
+`);
+    return ResultMsg.errMsg("該当する返金データが見つかりませんでした。");
+  }
   const {from, to, amount}: Refund = targetRefund;
 
   // 実際に返金するかの返信を待機

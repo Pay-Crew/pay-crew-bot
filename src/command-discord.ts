@@ -443,7 +443,7 @@ ${participantMembers.map((v) => v.displayName).join(", ")}`,
     return;
   }
   // 数字に変換
-  const amount = splitMode ? Math.floor(parseInt(amountInput) / participantMembers.length) : parseInt(amountInput);
+  const amount = splitMode ? Math.floor(Number(amountInput) / participantMembers.length) : Number(amountInput);
   if (Number.isNaN(amount)) {
     await interaction.followUp({ content: "数字のみ入力してください。\n(コマンドは中断されました。)", ephemeral: true });
     return;
