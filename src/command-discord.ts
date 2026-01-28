@@ -332,7 +332,7 @@ export const buttonReplyOptions = () => {
       .setLabel("支払いの一覧表示")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId("__global_my-list")
+      .setCustomId("__global_myList")
       .setLabel("合算した自分の支払いの一覧表示")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
