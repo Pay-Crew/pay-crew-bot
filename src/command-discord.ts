@@ -631,9 +631,7 @@ export const refundDiscordInteractiveCmd = async (
   }
 
   // 引数を取得
-  const usersInput: string | undefined = await interactiveArgThis("精算に関わる人を**2人**、メンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください")
-  // const user1: User = interaction.options.getUser("返金するorされる人1", true);
-  // const user2: User = interaction.options.getUser("返金するorされる人2", true);
+  const usersInput: string | undefined = await interactiveArgThis("**お金を返す人**と**返してもらう人**(順不同)をメンションで入力してください。\n(@に続けて、Discordのユーザー名を入力してください")
   if (usersInput === undefined) {
     await interaction.followUp({ content: "入力を受け取れませんでした。\n(コマンドは中断されました。)", ephemeral: true });
     return;
